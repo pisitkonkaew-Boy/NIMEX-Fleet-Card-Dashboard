@@ -112,15 +112,23 @@ function renderMixCharts(months){
   dc2('c-mixzone');const c1=document.getElementById('c-mixzone');
   if(c1){c1.parentNode.style.height=Math.max(220,z.length*26+40)+'px';CH['c-mixzone']=new Chart(c1,{type:'bar',data:{labels:z.map(o=>o.key),datasets:[{label:'PTT',data:z.map(o=>+o.sh.toFixed(1)),backgroundColor:P},{label:'BCP',data:z.map(o=>+pct(o.bL,o.l).toFixed(1)),backgroundColor:Bc}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,max:100,ticks:{color:tc_,callback:v=>v+'%'},grid:{color:gc_}},y:{stacked:true,ticks:{color:tc_},grid:{display:false}}},plugins:{legend:{labels:{color:tc_}},tooltip:{callbacks:{label:c=>`${c.dataset.label} ${c.raw}% · ${fmt(c.datasetIndex?z[c.dataIndex].bL:z[c.dataIndex].pL)} ล.`}}}}});}
-  // แนวโน้มรายเดือน (ทั้งบริษัท ตามแท็บกลุ่ม)
-  const allM=[...new Set(ALL_ROWS.map(r=>monthKey(r.date)))].sort((a,b)=>dkey('01/'+a)-dkey('01/'+b));
-  const tr=allM.map(mk=>{const rs=ALL_ROWS.filter(r=>monthKey(r.date)===mk&&inGrp(r.group)&&r.prov);const l=rs.reduce((s,r)=>s+r.liter,0),p=rs.filter(r=>r.prov==='PTT').reduce((s,r)=>s+r.liter,0);return{mk,sh:pct(p,l),st:monthStat(mk)};});
+  // แนวโน้ม %PTT / %BCP ตามแท็บกลุ่ม: เลือกเดือนเดียว = รายวัน · ทุกเดือน = รายเดือน
+  const one=months.length===1, B2=cssv('--s2');
+  let keys,lab,agg;
+  if(one){const rs=ALL_ROWS.filter(r=>monthKey(r.date)===months[0]&&inGrp(r.group)&&r.prov);keys=[...new Set(rs.map(r=>r.date))].sort(dateCmp);lab=d=>d.slice(0,5);agg=k=>rs.filter(r=>r.date===k);}
+  else{keys=[...new Set(ALL_ROWS.map(r=>monthKey(r.date)))].sort((a,b)=>dkey('01/'+a)-dkey('01/'+b));lab=mk=>monthLabel(mk).replace(/ 25\d\d$/,'');agg=k=>ALL_ROWS.filter(r=>monthKey(r.date)===k&&inGrp(r.group)&&r.prov);}
+  const tr=keys.map(k=>{const rs=agg(k),l=rs.reduce((s,r)=>s+r.liter,0),p=rs.filter(r=>r.prov==='PTT').reduce((s,r)=>s+r.liter,0),b=rs.filter(r=>r.prov==='BCP').reduce((s,r)=>s+r.liter,0);return{k,l,p,b,sh:pct(p,l),bs:pct(b,l),st:one?null:monthStat(k)};});
+  const lo=tr.length?Math.max(0,Math.floor(Math.min(...tr.map(o=>Math.min(o.sh,o.bs)))/10)*10-10):0;
+  const h2=document.getElementById('mix-trend-h');if(h2)h2.textContent='%PTT / %BCP '+(one?'รายวัน · '+monthLabel(months[0]):'รายเดือน');
   dc2('c-mixtrend');const c2=document.getElementById('c-mixtrend');
-  if(c2)CH['c-mixtrend']=new Chart(c2,{data:{labels:tr.map(o=>monthLabel(o.mk).replace(/ 25\d\d$/,'')),datasets:[
-      {type:'line',label:'%PTT'+(GRP?' · '+GRP:''),data:tr.map(o=>+o.sh.toFixed(1)),borderColor:P,backgroundColor:P,yAxisID:'y',tension:.3},
-    ]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:Math.max(0,Math.floor(Math.min(...tr.map(o=>o.sh))/10)*10-10),max:100,ticks:{color:tc_,callback:v=>v+'%'},grid:{color:gc_}},x:{ticks:{color:tc_},grid:{display:false}}},
-      plugins:{legend:{labels:{color:tc_}},tooltip:{callbacks:{afterLabel:c=>{const s=tr[c.dataIndex].st;return `ส่วนลดทั้งบริษัท ${(s.rate*100).toFixed(2)}% ≈ ฿${fmt(s.dB)}`;}}}}}});
-  const n=document.getElementById('mix-trend-note');if(n&&tr.length)n.textContent='แกนเริ่มที่ '+CH['c-mixtrend'].options.scales.y.min+'%';
+  if(c2)CH['c-mixtrend']=new Chart(c2,{type:'line',data:{labels:tr.map(o=>lab(o.k)),datasets:[
+      {label:'%PTT'+(GRP?' · '+GRP:''),data:tr.map(o=>+o.sh.toFixed(1)),borderColor:P,backgroundColor:P,tension:.3,pointRadius:one?2.5:4},
+      {label:'%BCP'+(GRP?' · '+GRP:''),data:tr.map(o=>+o.bs.toFixed(1)),borderColor:B2,backgroundColor:B2,tension:.3,pointRadius:one?2.5:4},
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},scales:{y:{min:lo,max:100,ticks:{color:tc_,callback:v=>v+'%'},grid:{color:gc_}},x:{ticks:{color:tc_,maxRotation:0,autoSkip:true,maxTicksLimit:one?16:12},grid:{display:false}}},
+      plugins:{legend:{labels:{color:tc_}},tooltip:{callbacks:{title:c=>one?tr[c[0].dataIndex].k:monthLabel(tr[c[0].dataIndex].k),
+        label:c=>{const o=tr[c.dataIndex];return c.datasetIndex?`BCP ${o.bs.toFixed(1)}% · ${fmt(o.b)} ล.`:`PTT ${o.sh.toFixed(1)}% · ${fmt(o.p)} ล.`;},
+        footer:c=>{const o=tr[c[0].dataIndex];return `รวม ${fmt(o.l)} ล.`+(o.st?` · ส่วนลดทั้งบริษัท ${(o.st.rate*100).toFixed(2)}% ≈ ฿${fmt(o.st.dB)}`:'');}}}}}});
+  const n=document.getElementById('mix-trend-note');if(n&&tr.length)n.textContent=(one?'แตะจุดเพื่อดูลิตรของวัน':'แตะจุดเพื่อดูส่วนลดของเดือน')+(lo>0?' · แกนเริ่มที่ '+lo+'%':'');
 }
 
 // ════════ วิเคราะห์จุดปัญหา: ทำไมรถถึงไปเติม BCP ════════
