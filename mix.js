@@ -46,7 +46,9 @@ function renderMix(){
     const pr=ALL_ROWS.filter(r=>monthKey(r.date)===pmk&&+r.date.split('/')[0]<=one.lastDay&&inGrp(r.group)&&r.prov);
     if(pr.length){const pp=pr.filter(r=>r.prov==='PTT').reduce((s,r)=>s+r.liter,0)/pr.reduce((s,r)=>s+r.liter,0)*100,cur=pct(pL,tL),d=cur-pp;
       prevTxt=`<span class="${d>=0?'dgood':'dbad'}">${d>=0?'▲':'▼'} ${Math.abs(d).toFixed(1)} จุด</span> เทียบ 1–${one.lastDay} ${monthLabel(pmk)}`;}}
+  const oL=tL-pL-bL;
   box.innerHTML=`
+    <div class="kpi"><div class="klab">ลิตรรวม${GRP?' · '+escH(GRP):''}</div><div class="kbig">${fmt(tL)} <small>ล.</small></div><div class="ksub">PTT ${pct(pL,tL).toFixed(1)}% · BCP ${pct(bL,tL).toFixed(1)}%${oL>0.5?' · อื่น '+fmt(oL)+' ล.':''}<br>฿${fmt(pB+bB+rows.filter(r=>r.prov!=='PTT'&&r.prov!=='BCP').reduce((s,r)=>s+r.baht,0))}</div><div class="kbar"><i style="width:${pct(pL,tL).toFixed(1)}%"></i></div></div>
     <div class="kpi"><div class="klab">ลิตร PTT${GRP?' · '+escH(GRP):''}</div><div class="kbig">${fmt(pL)} <small>ล.</small></div><div class="ksub">${pct(pL,tL).toFixed(1)}% (รถในฐาน${GRP?' · '+escH(GRP):''})${one?` · ทั้งบริษัท ${pct(one.pttL,one.pttL+one.bcpL+one.oth).toFixed(1)}%`:''} ${prevTxt?'<br>'+prevTxt:''}</div><div class="kbar"><i style="width:${pct(pL,tL).toFixed(1)}%"></i></div></div>
     <div class="kpi"><div class="klab">ลิตร BCP${GRP?' · '+escH(GRP):''}</div><div class="kbig">${fmt(bL)} <small>ล.</small></div><div class="ksub">${pct(bL,tL).toFixed(1)}% · ฿${fmt(bB)} · เฉลี่ย ${bL?(bB/bL).toFixed(2):'-'} บ./ล.</div><div class="kbar"><i style="width:${pct(bL,tL).toFixed(1)}%"></i></div></div>
     <div class="kpi"><div class="klab">ส่วนลด PTT ที่ได้ (ทั้งบริษัท)</div><div class="kbig">${fmt(dL)} <small>ล.</small></div><div class="ksub">≈ ฿${fmt(dB)}${one?` · ขั้น ${(one.rate*100).toFixed(2)}% จาก PTT ${fmt(one.pttL)} ล.`:` · รวม ${stats.length} เดือน`}</div></div>
@@ -57,13 +59,13 @@ function renderMix(){
 }
 function renderTierBar(stats){
   const el=document.getElementById('mix-tier');if(!el)return;
-  if(stats.length!==1){el.innerHTML=`<table class="dt"><thead><tr><th>เดือน</th><th class="r">PTT ลิตร</th><th class="r">BCP ลิตร</th><th class="r">%PTT</th><th>ขั้น</th><th class="r">ส่วนลด (ล.)</th><th class="r">ส่วนลด (฿)</th><th class="r">อีกกี่ลิตรถึงขั้นถัดไป</th><th class="r">ส่วนลดเพิ่ม (฿)</th></tr></thead><tbody>${stats.map(o=>`<tr><td>${monthLabel(o.mk)}${o.partial?` <small class="flog">(1–${o.lastDay})</small>`:''}</td><td class="r">${fmt(o.pttL)}</td><td class="r">${fmt(o.bcpL)}</td><td class="r">${pct(o.pttL,o.pttL+o.bcpL+o.oth).toFixed(1)}%</td><td>${(o.rate*100).toFixed(2)}%</td><td class="r">${fmt(o.dL)}</td><td class="r">฿${fmt(o.dB)}</td><td class="r">${o.next?fmt(o.next.need):'—'}</td><td class="r">${o.next?'฿'+fmt(o.nextGainB):'—'}</td></tr>`).join('')}</tbody></table>`;return;}
+  if(stats.length!==1){el.innerHTML=`<table class="dt"><thead><tr><th>เดือน</th><th class="r">ลิตรรวม</th><th class="r">PTT ลิตร</th><th class="r">BCP ลิตร</th><th class="r">%PTT</th><th>ขั้น</th><th class="r">ส่วนลด (ล.)</th><th class="r">ส่วนลด (฿)</th><th class="r">อีกกี่ลิตรถึงขั้นถัดไป</th><th class="r">ส่วนลดเพิ่ม (฿)</th></tr></thead><tbody>${stats.map(o=>`<tr><td>${monthLabel(o.mk)}${o.partial?` <small class="flog">(1–${o.lastDay})</small>`:''}</td><td class="r"><strong>${fmt(o.pttL+o.bcpL+o.oth)}</strong></td><td class="r">${fmt(o.pttL)}</td><td class="r">${fmt(o.bcpL)}</td><td class="r">${pct(o.pttL,o.pttL+o.bcpL+o.oth).toFixed(1)}%</td><td>${(o.rate*100).toFixed(2)}%</td><td class="r">${fmt(o.dL)}</td><td class="r">฿${fmt(o.dB)}</td><td class="r">${o.next?fmt(o.next.need):'—'}</td><td class="r">${o.next?'฿'+fmt(o.nextGainB):'—'}</td></tr>`).join('')}</tbody></table>`;return;}
   const o=stats[0],MAX=450000,x=v=>Math.min(100,v/MAX*100).toFixed(2);
   el.innerHTML=`<div class="tierbar">
     ${[0,...TIERS.map(t=>t.min)].map((m,i)=>{const r=i?TIERS[i-1].r:0,w=((i<TIERS.length?TIERS[i].min:MAX)-m)/MAX*100;return `<div class="tseg${o.rate===r?' on':''}" style="left:${x(m)}%;width:${w.toFixed(2)}%"><b>${(r*100).toFixed(2)}%</b><small>${m?fmt(m/1000)+'k':'0'}–${i<TIERS.length?fmt(TIERS[i].min/1000)+'k':'ขึ้นไป'}</small></div>`;}).join('')}
     <div class="tpin" style="left:${x(o.pttL)}%"><span>ตอนนี้ ${fmt(o.pttL)} ล.</span></div>
     ${o.partial?`<div class="tpin proj" style="left:${x(o.projL)}%"><span>คาดสิ้นเดือน ${fmt(o.projL)} ล.</span></div>`:''}
-  </div><p class="flog">ข้อมูล 1–${o.lastDay} ${monthLabel(o.mk)}${o.partial?` · คาดการณ์สิ้นเดือน = ลิตร PTT × ${o.dim}/${o.lastDay} วัน`:''} · ขั้นนับจากลิตร PTT ทั้งบริษัท (ทุกกลุ่ม รวมรถที่ยังไม่อยู่ในฐาน)</p>`;
+  </div><p class="flog">ลิตรรวมทั้งบริษัท <b>${fmt(o.pttL+o.bcpL+o.oth)}</b> ล. = PTT ${fmt(o.pttL)} (${pct(o.pttL,o.pttL+o.bcpL+o.oth).toFixed(1)}%) + BCP ${fmt(o.bcpL)} (${pct(o.bcpL,o.pttL+o.bcpL+o.oth).toFixed(1)}%)${o.oth>0.5?' + อื่น '+fmt(o.oth):''} · ข้อมูล 1–${o.lastDay} ${monthLabel(o.mk)}${o.partial?` · คาดการณ์สิ้นเดือน = ลิตร PTT × ${o.dim}/${o.lastDay} วัน`:''} · ขั้นนับจากลิตร PTT ทั้งบริษัท (ทุกกลุ่ม รวมรถที่ยังไม่อยู่ในฐาน)</p>`;
 }
 function renderSim(stats,SM,rows){
   const el=document.getElementById('mix-sim');if(!el)return;
@@ -101,7 +103,7 @@ function renderMixTable(SM,rows){
     <td class="r">${o.bL?pct(o.night,o.bL).toFixed(0)+'%':'—'}</td>
     <td class="r">${o.gain>0?'฿'+fmt(o.gain):'—'}</td><td class="r">${o.cars.size}</td><td class="r">${tB?pct(o.bL,tB).toFixed(1)+'%':'—'}</td></tr>`).join('')||'<tr><td colspan="12" style="text-align:center">ไม่มีข้อมูล</td></tr>';
 }
-function setMixDim(d){MIX.dim=d;renderMixTable(simArgs()[1],simArgs()[2]);}
+function setMixDim(d){MIX.dim=d;const w=document.getElementById('mix-tblwrap');if(w)w.classList.toggle('full',['zone','group','owner'].includes(d));renderMixTable(simArgs()[1],simArgs()[2]);}
 function renderMixCharts(months){
   if(typeof Chart==='undefined')return;
   const P=cssv('--s1'),Bc=cssv('--s2'),tc_=cssv('--muted'),gc_=cssv('--line');

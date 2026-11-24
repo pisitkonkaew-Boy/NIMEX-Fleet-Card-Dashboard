@@ -33,15 +33,15 @@ function mixTable(k){
   if(k==='mx_kpi'){const df=mxDiff(X),o=X.one,rows=[
       ['%PTT (รถในฐาน'+(GRP?' · '+GRP:'')+')',r1_(X.sh),'%',X.prev?r1_(X.prev.sh):null,df.txt],
       ['%PTT ทั้งบริษัท (ทุกรายการ)',r1_(X.coSh),'%',null,''],
-      ['ลิตร PTT (รถในฐาน)',Math.round(X.pL),'ลิตร',null,''],['ลิตร BCP (รถในฐาน)',Math.round(X.bL),'ลิตร',null,''],
+      ['ลิตรรวม (รถในฐาน)',Math.round(X.tL),'ลิตร',null,'PTT '+X.sh.toFixed(1)+'% · BCP '+pct(X.bL,X.tL).toFixed(1)+'%'],['ลิตร PTT (รถในฐาน)',Math.round(X.pL),'ลิตร',null,''],['ลิตร BCP (รถในฐาน)',Math.round(X.bL),'ลิตร',null,''],
       ['ราคาเฉลี่ย PTT',X.pL?r2_(X.pB/X.pL):null,'฿/ลิตร',null,'ทุกชนิดน้ำมันรวมกัน'],['ราคาเฉลี่ย BCP',X.bL?r2_(X.bB/X.bL):null,'฿/ลิตร',null,'ทุกชนิดน้ำมันรวมกัน'],
       ['ส่วนลด PTT ที่ได้ (ทั้งบริษัท)',Math.round(X.dL),'ลิตร',null,o?'ขั้น '+(o.rate*100).toFixed(2)+'%':'รวม '+X.stats.length+' เดือน'],['ส่วนลด PTT ที่ได้ (ทั้งบริษัท)',Math.round(X.dB),'บาท',null,'ลิตรส่วนลด × ราคาเฉลี่ย PTT']];
     if(o&&o.next)rows.push(['อีกกี่ลิตรถึงขั้นถัดไป',Math.ceil(o.next.need),'ลิตร',null,'ขั้น '+(o.next.r*100).toFixed(2)+'%'],['ส่วนลดเพิ่มเมื่อถึงขั้นถัดไป',Math.round(o.nextGainB),'บาท',null,Math.round(o.nextGainL)+' ลิตร']);
     if(o&&o.partial)rows.push(['คาดการณ์ PTT สิ้นเดือน',Math.round(o.projL),'ลิตร',null,'ขั้น '+(o.projRate*100).toFixed(2)+'% · ส่วนลด ≈ ฿'+fmt(o.projDB)]);
     rows.push(['ถ้าย้าย BCP ทั้งหมด (ตัวกรองนี้) มา PTT',Math.round(A.gainAll),'บาท',null,'ส่วนลดที่เพิ่มขึ้น']);
     return {title:'สรุป PTT / BCP + ส่วนลด (%PTT สูง = ดี)',head:['ตัวชี้วัด','ค่า','หน่วย',X.prev?'เดือนก่อน ('+X.prev.label+')':'เดือนก่อน','หมายเหตุ / ผลต่าง'],rows,mxDiffRow:0,mxDiffCls:df.cls};}
-  if(k==='mx_disc')return mxLong({title:'ส่วนลด PTT รายเดือน (ทั้งบริษัท)',head:['เดือน','PTT ลิตร','BCP ลิตร','%PTT','ขั้น %','ส่วนลด ลิตร','ราคาเฉลี่ย PTT','ส่วนลด บาท','อีกกี่ลิตรถึงขั้นถัดไป','ส่วนลดเพิ่ม (บาท)','คาดสิ้นเดือน PTT ลิตร'],
-    rows:X.stats.map(o=>[monthLabel(o.mk)+(o.partial?` (1–${o.lastDay})`:''),Math.round(o.pttL),Math.round(o.bcpL),r1_(pct(o.pttL,o.pttL+o.bcpL+o.oth)),r2_(o.rate*100),Math.round(o.dL),r2_(o.price),Math.round(o.dB),o.next?Math.ceil(o.next.need):null,o.next?Math.round(o.nextGainB):null,o.partial?Math.round(o.projL):null])},[0,1,2,3,4,7,8,9],['เดือน','PTT ล.','BCP ล.','%PTT','ขั้น %','ส่วนลด ฿','ขาดอีก ล.','เพิ่ม ฿']);
+  if(k==='mx_disc')return mxLong({title:'ส่วนลด PTT รายเดือน (ทั้งบริษัท)',head:['เดือน','ลิตรรวม','PTT ลิตร','BCP ลิตร','%PTT','ขั้น %','ส่วนลด ลิตร','ราคาเฉลี่ย PTT','ส่วนลด บาท','อีกกี่ลิตรถึงขั้นถัดไป','ส่วนลดเพิ่ม (บาท)','คาดสิ้นเดือน PTT ลิตร'],
+    rows:X.stats.map(o=>[monthLabel(o.mk)+(o.partial?` (1–${o.lastDay})`:''),Math.round(o.pttL+o.bcpL+o.oth),Math.round(o.pttL),Math.round(o.bcpL),r1_(pct(o.pttL,o.pttL+o.bcpL+o.oth)),r2_(o.rate*100),Math.round(o.dL),r2_(o.price),Math.round(o.dB),o.next?Math.ceil(o.next.need):null,o.next?Math.round(o.nextGainB):null,o.partial?Math.round(o.projL):null])},[0,1,2,3,4,5,8,9,10],['เดือน','รวม ล.','PTT ล.','BCP ล.','%PTT','ขั้น %','ส่วนลด ฿','ขาดอีก ล.','เพิ่ม ฿']);
   const dimT=(fn,lab,title)=>{const L=mixAgg(X.rows,fn,X.SM).sort((a,b)=>b.bL-a.bL);return mxLong({title,head:[lab,'ลิตรรวม','PTT ลิตร','BCP ลิตร','%PTT','ราคา PTT','ราคา BCP','BCP กลางคืน %','ส่วนลดเพิ่มถ้าย้าย (บาท)','รถ (คัน)'],
     rows:L.map(o=>[o.key,Math.round(o.l),Math.round(o.pL),Math.round(o.bL),r1_(o.sh),o.pL?r2_(o.pB/o.pL):null,o.bL?r2_(o.bB/o.bL):null,o.bL?r1_(pct(o.night,o.bL)):null,Math.round(o.gain),o.cars.size])},[0,1,2,3,4,7,8,9],[lab,'ลิตรรวม','PTT ล.','BCP ล.','%PTT','กลางคืน %','เพิ่ม ฿','รถ']);};
   if(k==='mx_zone')return dimT(r=>r.zone||'(ไม่มีภาค)','ภาค','PTT / BCP รายภาค (เรียงตามลิตร BCP)');
@@ -60,10 +60,10 @@ function mixText(){
   const X=mxCtx(),A=X.A,o=X.one,L=['','━━━━━━━━━━━━','⛽ '+MX_TITLE];const sec=t=>{L.push('');L.push(t);};
   if(ks.includes('mx_kpi')){const df=mxDiff(X);sec('🎯 สรุป (%PTT สูง = ดี)');
     L.push(`• %PTT รถในฐาน: ${X.sh.toFixed(1)}%  ${df.cls==='good'?'🟢':df.cls==='bad'?'🔴':'⚪'} ${df.txt}`);L.push(`• %PTT ทั้งบริษัท: ${X.coSh.toFixed(1)}%`);
-    L.push(`• PTT ${fmt(X.pL)} ล. · BCP ${fmt(X.bL)} ล.`);L.push(`• ส่วนลดที่ได้: ${fmt(X.dL)} ล. ≈ ฿${fmt(X.dB)}${o?' (ขั้น '+(o.rate*100).toFixed(2)+'%)':''}`);
+    L.push(`• ลิตรรวม ${fmt(X.tL)} ล. = PTT ${fmt(X.pL)} ล. + BCP ${fmt(X.bL)} ล.`);L.push(`• ส่วนลดที่ได้: ${fmt(X.dL)} ล. ≈ ฿${fmt(X.dB)}${o?' (ขั้น '+(o.rate*100).toFixed(2)+'%)':''}`);
     if(o&&o.next)L.push(`• อีก ${fmt(o.next.need)} ล. ถึงขั้น ${(o.next.r*100).toFixed(2)}% → ส่วนลดเพิ่ม ≈ ฿${fmt(o.nextGainB)}`);
     if(o&&o.partial)L.push(`• คาดสิ้นเดือน PTT ${fmt(o.projL)} ล. (ขั้น ${(o.projRate*100).toFixed(2)}%)`);}
-  if(ks.includes('mx_disc')){sec('💰 ส่วนลด PTT รายเดือน');X.stats.forEach(s=>L.push(`• ${monthLabel(s.mk)}: PTT ${fmt(s.pttL)} ล. · ขั้น ${(s.rate*100).toFixed(2)}% · ฿${fmt(s.dB)}${s.next?` · ขาดอีก ${fmt(s.next.need)} ล.`:''}`));}
+  if(ks.includes('mx_disc')){sec('💰 ส่วนลด PTT รายเดือน');X.stats.forEach(s=>L.push(`• ${monthLabel(s.mk)}: รวม ${fmt(s.pttL+s.bcpL+s.oth)} ล. · PTT ${fmt(s.pttL)} ล. · ขั้น ${(s.rate*100).toFixed(2)}% · ฿${fmt(s.dB)}${s.next?` · ขาดอีก ${fmt(s.next.need)} ล.`:''}`));}
   if(ks.includes('mx_zone')){sec('🗺️ ภาคที่เติม BCP มากสุด');mixAgg(X.rows,r=>r.zone||'(ไม่มีภาค)',X.SM).sort((a,b)=>b.bL-a.bL).slice(0,5).forEach((z,i)=>L.push(`${MD[i]} ${z.key}: BCP ${fmt(z.bL)} ล. · PTT ${z.sh.toFixed(0)}%`));}
   if(ks.includes('mx_go')){sec('🚛 กลุ่ม × เจ้าของ');mixAgg(X.rows,r=>r.group+' · '+r.owner,X.SM).sort((a,b)=>b.bL-a.bL).forEach(g=>L.push(`• ${g.key}: PTT ${g.sh.toFixed(0)}% · BCP ${fmt(g.bL)} ล.`));}
   if(ks.includes('mx_dc')){sec('📍 DC ที่เติม BCP มากสุด');A.dcs.slice(0,5).forEach((d,i)=>L.push(`${MD[i]} ${dcName(d.key)}: BCP ${fmt(d.bL)} ล. · PTT ${d.sh.toFixed(0)}%${d.why[0]?' — '+d.why[0]:''}`));}
@@ -115,7 +115,7 @@ async function composeMixInfo(){
   const W=1920,H=1080,[font,logo]=await Promise.all([fontCss(),logoUri()]),X=mxCtx(),o=X.one,df=mxDiff(X);
   let b=`<rect width="${W}" height="${H}" fill="#eef2f9"/>`+headBand(W,120,logo,MX_TITLE,'สัดส่วนการใช้น้ำมัน'+(GRP?' · กลุ่ม '+GRP:'')+' · เป้าหมาย: เติม PTT ให้มากขึ้น');
   const cards=[{t:'%PTT (รถในฐาน)',v:X.sh.toFixed(1),u:'%',sub:'ทั้งบริษัท '+X.coSh.toFixed(1)+'%',d:df.txt+(X.prev?' (สูง = ดี)':''),cls:df.cls},
-    {t:'ลิตร PTT',v:fmt(X.pL),u:'ล.',sub:'BCP '+fmt(X.bL)+' ล.',d:'',cls:'na'},
+    {t:'ลิตรรวม',v:fmt(X.tL),u:'ล.',sub:'PTT '+fmt(X.pL)+' · BCP '+fmt(X.bL),d:'',cls:'na'},
     {t:'ส่วนลดที่ได้ (บริษัท)',v:fmt(X.dB),u:'บาท',sub:fmt(X.dL)+' ล.'+(o?' · ขั้น '+(o.rate*100).toFixed(2)+'%':' · '+X.stats.length+' เดือน'),d:'',cls:'na'},
     o&&o.next?{t:'อีกกี่ลิตรถึงขั้นถัดไป',v:fmt(o.next.need),u:'ล.',sub:'ขั้น '+(o.next.r*100).toFixed(2)+'%',d:'+฿'+fmt(o.nextGainB),cls:'good'}:{t:'ขั้นถัดไป',v:o?'สูงสุด':'—',u:'',sub:o?'ขั้น 0.95% แล้ว':'เลือกเดือนเพื่อดู',d:'',cls:'na'},
     {t:'ถ้าย้าย BCP ทั้งหมดมา PTT',v:'+'+fmt(X.A.gainAll),u:'บาท',sub:'ส่วนลดเพิ่ม (ตัวกรองนี้)',d:'',cls:'good'}];
