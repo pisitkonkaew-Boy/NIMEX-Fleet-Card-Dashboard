@@ -231,6 +231,28 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 /* admin-only / loading */
 body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
 #fdb-table tr.off td{color:var(--muted)}
+.mixkpi{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+@media(max-width:900px){.mixkpi{grid-template-columns:1fr 1fr}}
+.mixkpi .kpi{background:linear-gradient(160deg,#0a2a5e,#123d82);color:#fff;border-radius:16px;padding:14px 16px;position:relative;overflow:hidden;min-height:118px}
+.mixkpi .klab{color:var(--gold-l);font-size:13px;font-weight:500}
+.mixkpi .kbig{font-size:26px;font-weight:600;font-family:var(--font-h);margin:4px 0}
+.mixkpi .kbig small{font-size:13px;font-weight:400}
+.mixkpi .ksub{font-size:12px;color:rgba(255,255,255,.85);line-height:1.5}
+.mixkpi .kbar{position:absolute;left:0;right:0;bottom:0;height:5px;background:rgba(255,255,255,.15)}.mixkpi .kbar i{display:block;height:100%;background:var(--gold-l)}
+.dgood{color:#1f9d55!important;font-weight:600}.dbad{color:#d64545!important;font-weight:600}
+.mixkpi .dgood{color:#7ee2a8!important}.mixkpi .dbad{color:#ff9a9a!important}
+.tierbar{position:relative;height:74px;margin:34px 6px 8px;background:var(--bg);border-radius:10px}
+.tseg{position:absolute;top:0;bottom:0;border-right:2px solid var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;color:var(--muted);background:rgba(29,87,184,.06)}
+.tseg.on{background:rgba(212,175,55,.25);color:var(--ink)}.tseg b{font-size:14px;color:var(--ink)}
+.tpin{position:absolute;top:-6px;bottom:-6px;width:3px;background:var(--s1);border-radius:2px}
+.tpin span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11.5px;background:var(--s1);color:#fff;padding:2px 6px;border-radius:6px;margin-bottom:2px}
+.tpin.proj{background:var(--s2)}.tpin.proj span{background:var(--s2);top:100%;bottom:auto;margin-top:2px}
+.mixbar{background:var(--s2)!important;opacity:.85}.mixbar .bf{background:var(--s1)!important}
+.anasum{text-align:left;line-height:1.8;padding-left:20px;margin:6px 0}
+.anagrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:900px){.anagrid{grid-template-columns:1fr}}
+.anacard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-align:left}
+.anacard .anah{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}.anacard ul{margin:4px 0 6px;padding-left:18px;line-height:1.7;font-size:13.5px}
+.anacard .flog span{color:var(--muted)}
 #seg-sub{display:flex;gap:2px;background:rgba(0,0,0,.22);border-radius:10px;padding:2px;margin-right:6px}
 #seg-sub[hidden]{display:none}
 #seg-sub button{border:0;background:transparent;color:var(--on-navy-m);padding:5px 10px;border-radius:8px;font-family:var(--font-h);font-size:12.5px;white-space:nowrap;min-height:32px}
@@ -270,6 +292,7 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
     <div class="lg"><img src="logo.png" alt="NIM Express · SEAL Gold Chain"></div>
     <div class="nm">NIMEX Fleet Card Dashboard</div>
     <button data-tab="overview" onclick="goTab('overview')" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>ภาพรวม PA</button>
+    <button data-tab="mix" onclick="goTab('mix')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 012-2h6a2 2 0 012 2v16"/><path d="M3 21h12"/><path d="M6 8h6"/><path d="M14 10h2a2 2 0 012 2v4a1.5 1.5 0 003 0V8l-3-3"/></svg>สัดส่วนน้ำมัน</button>
     <button data-tab="dc" onclick="goTab('dc')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg>รายละเอียด DC</button>
     <button data-tab="vehicles" onclick="goTab('vehicles')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h12v10H2z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>รายละเอียดรถ</button>
     <button data-tab="trend" onclick="goTab('trend')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>เทรนด์รายวัน</button>
@@ -419,6 +442,51 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
             <h2>ขนย้าย · บริษัท</h2><p class="note">ทะเบียน / DC</p>
             <div class="sb"><table class="dt" id="t-p-kn-c"><thead><tr><th>#</th><th>ทะเบียน</th><th class="r">ลิตร</th><th>%PA</th></tr></thead><tbody></tbody></table></div>
             <button class="more" onclick="showAllPlates('ขนย้าย','บริษัท')">ดูทั้งหมด ›</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ TAB MIX (PTT/BCP) ══ -->
+      <section class="tab" id="tab-mix">
+        <div id="mix-empty" class="card" hidden><h2>ยังไม่มีข้อมูลผลิตภัณฑ์</h2><p class="note">หน้านี้ใช้ข้อมูลจากไฟล์ดิบ Fleet Card (คอลัมน์ ผลิตภัณฑ์) — ผู้ดูแลเติมไฟล์ดิบที่หน้า ตั้งค่า</p></div>
+        <div id="mix-body">
+          <div class="mixkpi" id="mix-kpi"></div>
+          <div class="card">
+            <h2>ขั้นส่วนลด PTT (ทั้งบริษัท)</h2>
+            <p class="note" style="text-align:left">ส่วนลดเป็นลิตร = ลิตร PTT ทั้งเดือน × % ของขั้นที่ถึง (ทั้งก้อน) · บาท = ลิตรส่วนลด × ราคาเฉลี่ย PTT ของเดือน · ไม่เกิน 100,000 ล. = 0% · 100,001–200,000 = 0.60% · 200,001–300,000 = 0.70% · 300,001–400,000 = 0.90% · 400,001 ขึ้นไป = 0.95%</p>
+            <div id="mix-tier"></div>
+          </div>
+          <div class="card">
+            <h2>ตัวจำลอง: ถ้าเติม PTT มากขึ้น</h2>
+            <div class="tools"><label for="mix-move" id="mix-move-lab">ย้าย BCP มาเติม PTT</label><input id="mix-move" type="range" min="0" max="100" step="5" value="30" oninput="MIX.move=+this.value;renderSim(...simArgs())" style="flex:1;min-width:160px"><b id="mix-move-v">30%</b></div>
+            <div id="mix-sim"></div>
+            <p class="flog">ย้ายเฉพาะลิตร BCP ของแท็บกลุ่มที่เลือก · ขั้นส่วนลดคิดจาก PTT ทั้งบริษัทรวมกับลิตรที่ย้ายมา</p>
+          </div>
+          <div class="grid2">
+            <div class="card"><h2>สัดส่วน PTT / BCP รายภาค</h2><p class="note">เรียง %PTT น้อยไปมาก</p><div class="cwrap" style="height:320px"><canvas id="c-mixzone"></canvas></div></div>
+            <div class="card"><h2>%PTT รายเดือน</h2><p class="note" id="mix-trend-note">แตะจุดเพื่อดูส่วนลดของเดือน</p><div class="cwrap" style="height:320px"><canvas id="c-mixtrend"></canvas></div></div>
+          </div>
+          <div class="card">
+            <h2>สัดส่วนตามมิติ</h2>
+            <p class="note" style="text-align:left">เรียงตามลิตร BCP (ผลกระทบมากสุดก่อน) · แตะหัวตารางเพื่อเรียงตามคอลัมน์อื่น · ส่วนลดเพิ่ม = ถ้าย้าย BCP ของแถวนั้นมา PTT (คิดขั้นจาก PTT ทั้งบริษัท แยกรายเดือน)</p>
+            <div class="tools">
+              <select onchange="setMixDim(this.value)" aria-label="มิติ"><option value="zone">ภาค</option><option value="dc">DC</option><option value="group">กลุ่มรถ</option><option value="owner">เจ้าของ (ผปก/บริษัท)</option><option value="plate">ทะเบียน</option><option value="cc">Cost Centre</option></select>
+              <button class="btn alt btn-sm" onclick="expMix()">⬇ Excel</button>
+            </div>
+            <div class="sb2"><table class="dt"><thead><tr><th>#</th><th id="mix-dimh">ภาค</th><th class="r">ลิตรรวม</th><th class="r">PTT ล.</th><th class="r">BCP ล.</th><th style="min-width:120px">%PTT</th><th class="r">ราคา PTT</th><th class="r">ราคา BCP</th><th class="r">BCP กลางคืน</th><th class="r">ส่วนลดเพิ่ม</th><th class="r">รถ</th><th class="r">สัดส่วน BCP</th></tr></thead><tbody id="mix-tbody"></tbody></table></div>
+          </div>
+          <div class="sec">วิเคราะห์จุดปัญหา · ทำไมรถถึงไปเติม BCP</div>
+          <div id="mix-ana"></div>
+          <div class="card">
+            <h2>โปรโมชันที่ประกาศ (ข้อมูลจากเว็บ ณ 24 พ.ย. 2569 · ไม่ใช้คำนวณ)</h2>
+            <ul class="anasum">
+              <li><b>บางจาก:</b> เติมทุกชนิดครบทุก 1,000 บาท รับน้ำดื่ม 1.5 ลิตร (1–30 พ.ย. 2569) และเติมครบ 1,200 บาท รับ M-150 เมื่อเติมดีเซล (21 ต.ค. 2569 – 31 ม.ค. 2570) <span class="flog">— ไทยรัฐ</span></li>
+              <li><b>บางจากกรีนไมลส์:</b> ลดทุกชนิด 1 บาท/ลิตร เฉพาะ 13 พ.ย. 2569 · ใช้ 500 คะแนนแลกคูปองลด 120 บาท เมื่อเติม 1,000 บาทขึ้นไป (แลก ก.ค.–ก.ย. ใช้ได้ถึง 31 ต.ค. 2569 สูงสุด 5 สิทธิ์/เดือน) <span class="flog">— ไทยรัฐ, ฐานเศรษฐกิจ</span></li>
+              <li><b>บางจาก Self-Service:</b> ราคาต่ำกว่าสถานีปกติ 0.30 บาท/ลิตร <span class="flog">— bangchak.co.th</span></li>
+              <li><b>PTT (บลูพลัส):</b> โปรลดราคาให้สมาชิก เช่น ลด 1 บาท/ลิตร ระบุ <b>ไม่ร่วมกับลูกค้า Fleet Card</b> <span class="flog">— The Bangkok Insight, ไทยพับลิก้า</span></li>
+            </ul>
+            <p class="note" style="text-align:left"><b>ข้อสังเกต:</b> ของแถม/คะแนนที่บางจาก ตกกับ "คนขับ" ส่วนส่วนลด PTT ตกกับ "บริษัท" และโปรสมาชิก PTT ไม่รวม Fleet Card — คนขับ (โดยเฉพาะรถร่วม ผปก) จึงมีแรงจูงใจไปเติมบางจาก แม้ราคาเท่ากัน ไม่ทราบว่า Fleet Card ของบริษัทได้คะแนนกรีนไมลส์หรือไม่ ควรตรวจกับผู้ออกบัตร</p>
+            <p class="note" style="text-align:left"><b>แนวทาง:</b> (1) กำหนดปั๊ม PTT บนเส้นทางของ DC ที่เป็นจุดปัญหา โดยเฉพาะปั๊มที่เปิดกลางคืน (2) แบ่งส่วนลด PTT บางส่วนเป็นแรงจูงใจให้คนขับ/ผปก ที่เติม PTT ตามเป้า (3) ตั้งเป้า %PTT ราย DC และติดตามจากหน้านี้ทุกเดือน (4) ตรวจกับผู้ออกบัตรว่าจำกัดการใช้บัตรเฉพาะ PTT ได้หรือไม่ สำหรับรถที่เส้นทางมี PTT เพียงพอ</p>
           </div>
         </div>
       </section>
@@ -686,6 +754,7 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
 <!-- ══ BOTTOM TAB (mobile) ══ -->
 <nav class="btab" aria-label="เมนูหลัก">
   <button data-tab="overview" onclick="goTab('overview')" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>ภาพรวม</button>
+  <button data-tab="mix" onclick="goTab('mix')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 012-2h6a2 2 0 012 2v16"/><path d="M3 21h12"/><path d="M6 8h6"/><path d="M14 10h2a2 2 0 012 2v4a1.5 1.5 0 003 0V8l-3-3"/></svg>PTT/BCP</button>
   <button data-tab="dc" onclick="goTab('dc')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg>DC</button>
   <button data-tab="vehicles" onclick="goTab('vehicles')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h12v10H2z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>รถ</button>
   <button data-tab="trend" onclick="goTab('trend')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>เทรนด์</button>
@@ -752,7 +821,8 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
 
 <script src="fleetdb.js?v=3"></script>
 <script src="fuel.js?v=2"></script>
-<script src="app.js?v=5"></script>
+<script src="mix.js?v=1"></script>
+<script src="app.js?v=6"></script>
 <script src="share.js?v=4"></script>
 </body>
 </html>

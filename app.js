@@ -96,6 +96,7 @@ function applyMonthFilter(){
   if(typeof renderAnalysis==='function') renderAnalysis();
   renderChips(); syncBadges();
   if(typeof renderIdle==='function'&&document.getElementById('tab-idle')?.classList.contains('on')) renderIdle();
+  if(typeof renderMix==='function'&&document.getElementById('tab-mix')?.classList.contains('on')) renderMix();
 }
 
 // ════════ UTILS ════════
@@ -135,6 +136,7 @@ applyTheme();
 // ════════ TABS ════════
 const TAB_INFO={
   overview:['ภาพรวม','การใช้น้ำมันเทียบวงเงิน PA'],
+  mix:['สัดส่วนการใช้น้ำมัน','PTT เทียบ BCP · ส่วนลด PTT · จุดปัญหา'],
   dc:['รายละเอียด DC','การใช้น้ำมันราย DC'],
   vehicles:['รายละเอียดรถ','การใช้น้ำมันรายทะเบียน'],
   trend:['เทรนด์รายวัน','การใช้น้ำมันและราคารายวัน'],
@@ -151,6 +153,7 @@ function goTab(id){
   const ti=TAB_INFO[id]; if(ti){document.getElementById('page-eyebrow').textContent=ti[0];document.getElementById('page-title').textContent=ti[1];}
   window.scrollTo({top:0});
   if(id==='fleetdb') renderFleetDB();
+  if(id==='mix'&&D) renderMix();
   if(id==='fleetchk') renderFleetChk();
   if(id==='idle') renderIdle();
   if(!D) return;
