@@ -132,12 +132,13 @@ function openShare(){
   document.getElementById('share-scope').textContent='ตัวกรองปัจจุบัน: '+scopeLabel()+' · '+D.period+' · เทียบ: '+(C.prev?C.prev.label:'ไม่มีช่วงก่อนหน้า');
   const box=(arr,id)=>document.getElementById(id).innerHTML=arr.map(([k,t])=>`<label><input type="checkbox" data-sec="${k}"${picked.has(k)?' checked':''}> ${t}</label>`).join('');
   box(SECS,'share-checks');box(BWS,'share-checks-bw');
+  const mxw=document.getElementById('share-mx-wrap');if(mxw){mxw.hidden=!mxOn();if(mxOn())box(MXS.map(x=>[x[0],x[1]]),'share-checks-mx');}
   document.getElementById('share-text').value=summaryText();
   document.getElementById('xprev').innerHTML='';say('');
   openM('m-share');
 }
 document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.sec;if(!k)return;e.target.checked?picked.add(k):picked.delete(k);document.getElementById('share-text').value=summaryText();});
-function selKeys(){return [...SECS,...BWS].map(s=>s[0]).filter(k=>picked.has(k));}
+function selKeys(){return [...SECS,...BWS].map(s=>s[0]).filter(k=>picked.has(k)).concat(typeof mxPicked==='function'?mxPicked():[]);}
 
 // ════════ 4) ข้อความสรุป ════════
 const MD=['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
@@ -158,11 +159,13 @@ function summaryText(){
   BWM.forEach(([m])=>{if(!picked.has('bw_'+m))return;const a=bwOf(C.dcs,m,5),b=bwOf(C.go,m,3);sec('🥇 ดีสุด / แย่สุด · '+bwLabel(m)+' (ต่ำ = ดี)');
     L.push('DC ดีสุด: '+(a.best.map(o=>`${dcName(o.key)} ${bwFmt(m,o.mv)}`).join(', ')||'—'));L.push('DC แย่สุด: '+(a.worst.map(o=>`${dcName(o.key)} ${bwFmt(m,o.mv)}`).join(', ')||'—'));
     L.push('กลุ่มดีสุด: '+(b.best.map(o=>`${o.key} ${bwFmt(m,o.mv)}`).join(', ')||'—'));L.push('กลุ่มแย่สุด: '+(b.worst.map(o=>`${o.key} ${bwFmt(m,o.mv)}`).join(', ')||'—'));});
+  if(typeof mixText==='function')L.push(...mixText());
   return L.join('\n');
 }
 
 // ════════ 5) ตารางข้อมูลกลาง (ใช้ร่วม Excel / PowerPoint / PNG ยาว) ════════
 function tables(key){
+  if(key.startsWith('mx_'))return mixTable(key);
   const d=D,C=ctx(),gH=C.mode==='off'?[]:['เกรด'];const gV=o=>C.mode==='off'?[]:[o.g||'—'];
   if(key==='kpi'){const h=['ตัวชี้วัด','ค่า','หน่วย',C.prev?'เดือนก่อน ('+C.prev.label+')':'เดือนก่อน','ผลต่าง','เกรด'];
     return {title:'KPI หลัก (ต่ำ = ดี)',head:h,rows:kpiList(C).map(k=>{const df=diffOf(k);return [k.t,k.v==null?null:(k.m==='pt'||k.u==='%'?r1(k.v):k.u==='฿/ลิตร'?r2(k.v):r1(k.v)),k.u,k.pv==null?null:(k.u==='฿/ลิตร'?r2(k.pv):r1(k.pv)),df.txt,k.g||''];}),diffCol:4,diffCls:kpiList(C).map(k=>diffOf(k).cls)};}
@@ -294,22 +297,26 @@ async function composeInfo(){
 }
 
 // ════════ 8) PNG ยาว (ตามหัวข้อที่เลือก) ════════
-const SECI={kpi:'star',go:'users',dcw:'alert',vt:'truck',daily:'line',dc:'dc',plates:'truck',alert:'alert'};
+const SECI={kpi:'star',go:'users',dcw:'alert',vt:'truck',daily:'line',dc:'dc',plates:'truck',alert:'alert',mx_kpi:'fuel',mx_disc:'money',mx_zone:'pin',mx_go:'users',mx_dc:'dc',mx_why:'analysis'};
 function longPiece(k,w){
   const C=ctx();
+  if(k.startsWith('mx_')){const mp=mixLongPiece(k,w);if(mp)return mp;}
   if(k==='kpi'){const ks=kpiList(C),g=12,cw=(w-3*g)/4,ch=170;let s='';ks.forEach((kk,i)=>{s+=`<g transform="scale(1)">${kpiCard(kk,(i%4)*(cw+g),Math.floor(i/4)*(ch+g),cw,ch).replace(/font-size="46"/,'font-size="34"').replace(/font-size="38"/,'font-size="28"')}</g>`;});return {t:'KPI หลัก (ต่ำ = ดี)'+(C.prev?' · เทียบ '+C.prev.label:''),s,h:2*ch+g};}
   if(k==='daily'){const r=chDaily(w,300);return {t:'การใช้น้ำมันรายวัน (ลิตร)',s:r.s,h:300};}
   if(k==='go'){const r=chGO(w,60*Math.max(1,C.go.length)+40);return {t:'%PA ตามกลุ่ม × เจ้าของ',s:r.s+`<text x="${w}" y="-14" text-anchor="end" font-size="13" fill="${LT.muted}">${esc(r.note)}</text>`,h:60*Math.max(1,C.go.length)+40};}
-  const T=tables(k);if(!T)return null;
+  let T=tables(k);if(!T)return null;
+  if(T.long)T={...T,head:T.long.head,rows:T.long.rows};
   const isNum=v=>typeof v==='number';
-  const cols=[{t:'#',w:.5,f:(r,j)=>j+1},...T.head.map((h,i)=>({t:h,w:i===0?2.6:1.3,r:T.rows.some(r=>isNum(r[i])),b:i===0,f:r=>r[i]==null?'—':isNum(r[i])?(Number.isInteger(r[i])?fmt(r[i]):r[i].toLocaleString('th-TH',{maximumFractionDigits:2})):r[i],col:k==='kpi'&&i===T.diffCol?(r=>String(r[i]).startsWith('▲')?LT.red:String(r[i]).startsWith('▼')?LT.good:LT.muted):(h==='ป้าย'?(r=>r[i]==='แย่สุด'?LT.red:r[i]==='ดีสุด'?LT.good:LT.ink):(h==='เกรด'?(r=>GCOL[r[i]]||LT.ink):null))}))];
+  const cols=[{t:'#',w:.5,f:(r,j)=>j+1},...T.head.map((h,i)=>({t:h,w:i===0?2.6:h==='สาเหตุหลัก'?4.6:1.3,r:T.rows.some(r=>isNum(r[i])),b:i===0,f:r=>r[i]==null?'—':isNum(r[i])?(Number.isInteger(r[i])?fmt(r[i]):r[i].toLocaleString('th-TH',{maximumFractionDigits:2})):r[i],col:k==='kpi'&&i===T.diffCol?(r=>String(r[i]).startsWith('▲')?LT.red:String(r[i]).startsWith('▼')?LT.good:LT.muted):(h==='ป้าย'?(r=>r[i]==='แย่สุด'?LT.red:r[i]==='ดีสุด'?LT.good:LT.ink):(h==='เกรด'?(r=>GCOL[r[i]]||LT.ink):null))}))];
   const rows=k==='alert'?T.rows.slice(0,25):k.startsWith('bw_')?T.rows.filter(r=>r[5]):T.rows;const t=tblSvg(cols,rows,w);
   return {t:T.title+(k==='alert'&&T.rows.length>25?' (แสดง 25 แรก)':'')+(k.startsWith('bw_')?' · อันดับเต็มอยู่ใน Excel':''),s:t.s,h:t.h};
 }
 async function composeLong(keys){
   const [font,logo]=await Promise.all([fontCss(),logoUri()]);
   const W=1240,m=26,head=150,foot=46,top=56,pad=20;let y=head+m+10,b='';
-  keys.forEach(k=>{const p=longPiece(k,W-2*m-2*pad);if(!p)return;const h=p.h+top+pad,ic=SECI[k]||'star';
+  let mxBand=false;
+  keys.forEach(k=>{if(k.startsWith('mx_')&&!mxBand){mxBand=true;b+=`<g transform="translate(${m} ${y})">${mixSectionBand(W-2*m)}</g>`;y+=64+m+10;}
+    const p=longPiece(k,W-2*m-2*pad);if(!p)return;const h=p.h+top+pad,ic=SECI[k]||'star';
     b+=`<g transform="translate(${m} ${y})"><rect width="${W-2*m}" height="${h}" rx="16" fill="#fff" stroke="#dbe3f0"/><rect x="${(W-2*m)*.15}" y="-1.2" width="${(W-2*m)*.7}" height="2.4" fill="#d4af37"/><circle cx="${(W-2*m)/2}" cy="0" r="19" fill="#0a2a5e" stroke="#d4af37" stroke-width="2"/>${svgI(ic,(W-2*m)/2-11,-11,22,'#f0d57a')}<text x="${(W-2*m)/2}" y="${top-14}" text-anchor="middle" font-size="18" font-weight="600" fill="#0a2a5e">${esc(p.t)}</text><g transform="translate(${pad} ${top})">${p.s}</g></g>`;y+=h+m+10;});
   const H=y-10+foot,now=new Date();
   const ft=`<rect y="${H-foot}" width="${W}" height="${foot}" fill="#0a2a5e"/><rect y="${H-foot}" width="${W}" height="3" fill="#d4af37"/><text x="${W/2}" y="${H-foot/2+6}" text-anchor="middle" font-size="14" fill="#dfe8f7">NIMEX Fleet Card Dashboard · สร้างเมื่อ ${now.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})} ${now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</text>`;
@@ -323,8 +330,11 @@ function buildXlsx(keys){
   keys.forEach(k=>{const T=tables(k);if(!T)return;
     const aoa=[[T.title],['ตัวกรอง: '+scopeLabel()+' · '+D.period+(C.prev?' · เทียบ '+C.prev.label:'')],[],T.head,...T.rows];
     const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=T.head.map((_,i)=>({wch:i?14:30}));
-    XLSX.utils.book_append_sheet(wb,ws,sheetName(SECS.concat(BWS).find(s=>s[0]===k)[1],used));});
-  const ws=XLSX.utils.aoa_to_sheet([['หมายเหตุ'],['%PA = ลิตรที่ใช้ ÷ ผลรวมวงเงิน PA ลิตรของรถ'],['คาดการณ์สิ้นเดือน = ใช้แล้ว ÷ วันที่มีข้อมูล × จำนวนวันทั้งเดือน'],['DC/กลุ่ม = ลิตรรวม ÷ PA ลิตรรวมของรถในนั้น'],['เกรด: '+(C.mode==='off'?'ไม่ใช้':C.basisLabel+' · '+gradeRule())],['เทียบ: '+(C.prev?C.prev.label+' (วันที่เท่ากัน)':'ไม่มีช่วงก่อนหน้า')],['ทุกตัวชี้วัด ต่ำ = ดี']]);ws['!cols']=[{wch:70}];
+    if(k.startsWith('mx_'))ws['!cols']=T.head.map((h,i)=>({wch:i===0?28:/สาเหตุ|ปั๊ม|รายละเอียด/.test(h)?90:14}));
+    if(k.startsWith('mx_'))aoa[1][0]='หัวข้อ: '+MX_TITLE+' · '+aoa[1][0];
+    XLSX.utils.book_append_sheet(wb,k.startsWith('mx_')?XLSX.utils.aoa_to_sheet(aoa):ws,sheetName(k.startsWith('mx_')?MXS.find(s=>s[0]===k)[2]:SECS.concat(BWS).find(s=>s[0]===k)[1],used));
+    if(k.startsWith('mx_'))wb.Sheets[wb.SheetNames[wb.SheetNames.length-1]]['!cols']=T.head.map((h,i)=>({wch:i===0?28:/สาเหตุ|ปั๊ม|รายละเอียด/.test(h)?90:14}));});
+  const ws=XLSX.utils.aoa_to_sheet([['หมายเหตุ'],['%PA = ลิตรที่ใช้ ÷ ผลรวมวงเงิน PA ลิตรของรถ'],['คาดการณ์สิ้นเดือน = ใช้แล้ว ÷ วันที่มีข้อมูล × จำนวนวันทั้งเดือน'],['DC/กลุ่ม = ลิตรรวม ÷ PA ลิตรรวมของรถในนั้น'],['เกรด: '+(C.mode==='off'?'ไม่ใช้':C.basisLabel+' · '+gradeRule())],['เทียบ: '+(C.prev?C.prev.label+' (วันที่เท่ากัน)':'ไม่มีช่วงก่อนหน้า')],['ทุกตัวชี้วัด ต่ำ = ดี (ยกเว้น %PTT สูง = ดี)'],...(keys.some(k=>k.startsWith('mx_'))?[[''],['หัวข้อ '+MX_TITLE],[MX_RULE],['%PTT รถในฐาน = ตามแท็บกลุ่มที่เลือก · ทั้งบริษัท = ทุกรายการในไฟล์ดิบ (รวมรถที่ยังไม่อยู่ในฐาน)'],['สาเหตุคำนวณจากข้อมูลการเติมจริง: ราคาน้ำมันชนิดเดียวกัน/จังหวัด/เดือน, เวลาเติม 21:00–05:59, ปั๊มที่ใช้, รถที่เติม BCP อย่างเดียว']]:[])]);ws['!cols']=[{wch:70}];
   XLSX.utils.book_append_sheet(wb,ws,'หมายเหตุ');
   return wb;
 }
@@ -336,20 +346,29 @@ async function buildPptx(keys){
   p.addSlide().addImage({data:info,x:0,y:0,w:13.333,h:7.5});
   const head=(sl,t)=>{sl.background={color:'EEF2F9'};sl.addShape(p.ShapeType.rect,{x:0,y:0,w:13.333,h:0.8,fill:{color:'0A2A5E'}});sl.addShape(p.ShapeType.rect,{x:0,y:0.8,w:13.333,h:0.05,fill:{color:'D4AF37'}});
     sl.addText(t,{x:0.4,y:0.1,w:9.5,h:0.6,fontFace:FF,fontSize:22,bold:true,color:'FFFFFF'});sl.addText(scopeLabel()+' · '+D.period,{x:8.6,y:0.1,w:4.4,h:0.6,fontFace:FF,fontSize:12,color:'E6D79C',align:'right'});};
+  let mxDiv=false;
   for(const k of keys){
+    if(k.startsWith('mx_')&&!mxDiv){mxDiv=true;
+      const dv=p.addSlide();dv.background={color:'0A2A5E'};dv.addShape(p.ShapeType.rect,{x:0,y:4.1,w:13.333,h:0.08,fill:{color:'D4AF37'}});
+      dv.addText(MX_TITLE,{x:0.6,y:2.4,w:12.1,h:1.2,fontFace:FF,fontSize:40,bold:true,color:'FFFFFF',align:'center'});
+      dv.addText('สัดส่วนการใช้น้ำมัน · เป้าหมาย: เติม PTT ให้มากขึ้น\n'+scopeLabel()+' · '+D.period,{x:0.6,y:4.4,w:12.1,h:1.2,fontFace:FF,fontSize:18,color:'E6D79C',align:'center'});
+      const mi=await blobUri(await toPng(await composeMixInfo(),1));p.addSlide().addImage({data:mi,x:0,y:0,w:13.333,h:7.5});}
+    if(k==='mx_why'){const T=tables(k),sl=p.addSlide();head(sl,T.title);
+      sl.addText(T.rows.map(([h,t])=>({text:h+': '+t,options:{bullet:true,breakLine:true}})),{x:0.6,y:1.1,w:12.1,h:6.1,fontFace:FF,fontSize:15,color:'0B1F3F',valign:'top',paraSpaceAfter:6});continue;}
     if(k==='daily'){const sl=p.addSlide();head(sl,'การใช้น้ำมันรายวัน (ลิตร)');
       sl.addChart(p.ChartType.bar,[{name:'ลิตร',labels:D.daily.map(r=>r[0].slice(0,5)),values:D.daily.map(r=>r[1])}],{x:0.4,y:1.1,w:12.5,h:5.9,chartColors:['1D57B8'],catAxisLabelFontFace:FF,valAxisLabelFontFace:FF,catAxisLabelFontSize:9,valAxisLabelFormatCode:'#,##0',showLegend:false});
       continue;}
-    const T0=tables(k);if(!T0)continue;const per=13;
+    const T0=tables(k);if(!T0)continue;const per=k==='mx_dc'?6:13;
     const T=k==='alert'?{...T0,rows:T0.rows.slice(0,26),title:T0.title+(T0.rows.length>26?' · 26 คันแรก (ครบใน Excel)':'')}:k.startsWith('bw_')?{...T0,rows:T0.rows.filter(r=>r[5]),title:T0.title+' · อันดับเต็มใน Excel'}:T0;
     for(let i=0;i<Math.max(1,T.rows.length);i+=per){const sl=p.addSlide();head(sl,T.title+(T.rows.length>per?` (${Math.floor(i/per)+1}/${Math.ceil(T.rows.length/per)})`:''));
       const hdr=T.head.map(h=>({text:h,options:{bold:true,color:'FFFFFF',fill:{color:'0A2A5E'}}}));
       const body=T.rows.slice(i,i+per).map((r,j)=>r.map((v,ci)=>{let color='0B1F3F';
         if(k==='kpi'&&ci===T.diffCol){const c=T.diffCls[i+j];color=c==='good'?'1F8A4C':c==='bad'?'C0392B':'55657F';}
+        if(k==='mx_kpi'&&i+j===T.mxDiffRow&&ci===4)color=T.mxDiffCls==='good'?'1F8A4C':T.mxDiffCls==='bad'?'C0392B':'55657F';
         if(T.head[ci]==='ป้าย')color=v==='แย่สุด'?'C0392B':v==='ดีสุด'?'1F8A4C':color;
         if(T.head[ci]==='เกรด'&&GCOL[v])color=GCOL[v].slice(1).toUpperCase();
         return {text:v==null?'—':typeof v==='number'?v.toLocaleString('th-TH',{maximumFractionDigits:2}):String(v),options:{color,align:typeof v==='number'?'right':'left',fill:{color:j%2?'F2F5FB':'FFFFFF'}}};}));
-      sl.addTable([hdr,...(body.length?body:[[{text:'ไม่มีรายการ',options:{colspan:T.head.length}}]])],{x:0.4,y:1.1,w:12.5,fontFace:FF,fontSize:12,border:{type:'solid',color:'DBE3F0',pt:0.5},rowH:0.38});}
+      sl.addTable([hdr,...(body.length?body:[[{text:'ไม่มีรายการ',options:{colspan:T.head.length}}]])],{x:0.4,y:1.1,w:12.5,fontFace:FF,fontSize:k==='mx_dc'||T.head.length>9?10:12,border:{type:'solid',color:'DBE3F0',pt:0.5},rowH:0.38,...(k==='mx_dc'?{colW:[1.6,1,1,0.8,1.2,4.4,2.5]}:{})});}
   }
   const sl=p.addSlide();head(sl,'หมายเหตุสูตรและเกณฑ์');
   sl.addText(['%PA = ลิตรที่ใช้ ÷ ผลรวมวงเงิน PA ลิตรของรถ','คาดการณ์สิ้นเดือน = ใช้แล้ว ÷ วันที่มีข้อมูล × จำนวนวันทั้งเดือน','DC/กลุ่ม = ลิตรรวม ÷ PA ลิตรรวมของรถในนั้น','เกรด: '+(C.mode==='off'?'ไม่ใช้':C.basisLabel+' · '+gradeRule()),'เทียบ: '+(C.prev?C.prev.label+' (วันที่เท่ากัน) · เขียว = ดีขึ้น แดง = แย่ลง':'ไม่มีช่วงก่อนหน้า'),'ทุกตัวชี้วัด ต่ำ = ดี'].map(t=>({text:t,options:{bullet:true,breakLine:true}})),{x:0.6,y:1.2,w:12,h:5,fontFace:FF,fontSize:18,color:'0B1F3F',valign:'top'});
@@ -361,17 +380,17 @@ async function doExport(kind){
   if(!D)return;
   if(kind==='copy'){const t=document.getElementById('share-text');try{await navigator.clipboard.writeText(t.value);say('คัดลอกแล้ว นำไปวางใน LINE หรือแอปอื่นได้เลย');}catch(e){t.select();say('เลือกข้อความแล้ว กดคัดลอกจากเมนูของเครื่อง');}return;}
   const keys=selKeys();
-  if(kind!=='info'&&!keys.length){say('เลือกอย่างน้อย 1 หัวข้อก่อน');return;}
+  if(kind!=='info'&&kind!=='infomx'&&!keys.length){say('เลือกอย่างน้อย 1 หัวข้อก่อน');return;}
   const btns=document.querySelectorAll('#m-share .btn');btns.forEach(b=>b.disabled=true);say('กำลังสร้างไฟล์…');
   const name='NIMEX-Fleet-Card-'+fileStamp();
   try{
     if(kind==='xlsx'){XLSX.writeFile(buildXlsx(keys),name+'.xlsx');say('ดาวน์โหลด Excel แล้ว');}
     if(kind==='pptx'){const p=await buildPptx(keys);await p.writeFile({fileName:name+'.pptx'});say('ดาวน์โหลด PowerPoint แล้ว');}
-    if(kind==='png'||kind==='info'){
-      const b=await toPng(kind==='info'?await composeInfo():await composeLong(keys),2);
-      saveBlob(name+(kind==='info'?'-Infographic':'')+'.png',b);
+    if(kind==='png'||kind==='info'||kind==='infomx'){
+      const b=await toPng(kind==='info'?await composeInfo():kind==='infomx'?await composeMixInfo():await composeLong(keys),2);
+      saveBlob(name+(kind==='info'?'-Infographic':kind==='infomx'?'-PTT-BCP-Infographic':'')+'.png',b);
       const u=URL.createObjectURL(b);document.getElementById('xprev').innerHTML=`<p class="msg">ถ้าไฟล์ไม่ดาวน์โหลด ให้กดค้างหรือคลิกขวาที่รูปเพื่อบันทึก</p><img src="${u}" alt="ภาพสรุปผล" style="width:100%;border:1px solid var(--line);border-radius:10px">`;
-      say(kind==='info'?'สร้างอินโฟกราฟิก 16:9 แล้ว (3840×2160)':'สร้างรูปแล้ว');}
+      say(kind==='info'||kind==='infomx'?'สร้างอินโฟกราฟิก 16:9 แล้ว (3840×2160)':'สร้างรูปแล้ว');}
   }catch(e){console.error(e);say('สร้างไฟล์ไม่สำเร็จ: '+e.message);}
   btns.forEach(b=>b.disabled=false);
 }

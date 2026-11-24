@@ -806,6 +806,11 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
     <div class="checks" id="share-checks"></div>
     <div class="flog">ดีสุด / แย่สุด แยกรายตัวชี้วัด</div>
     <div class="checks" id="share-checks-bw"></div>
+    <div id="share-mx-wrap" hidden>
+      <div style="font-weight:500;margin-top:6px">⛽ PTT / BCP และส่วนลด PTT <span class="flog">(แยกหน้าและหัวเรื่อง)</span></div>
+      <div class="checks" id="share-checks-mx"></div>
+      <button class="btn alt" onclick="doExport('infomx')">อินโฟกราฟิก PTT / BCP 16:9 (ภาพ PNG แยก)</button>
+    </div>
     <div class="btns">
       <button class="btn" onclick="doExport('xlsx')">Excel</button>
       <button class="btn" onclick="doExport('pptx')">PowerPoint</button>
@@ -821,8 +826,9 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
 
 <script src="fleetdb.js?v=3"></script>
 <script src="fuel.js?v=2"></script>
-<script src="mix.js?v=1"></script>
+<script src="mix.js?v=2"></script>
 <script src="app.js?v=6"></script>
-<script src="share.js?v=4"></script>
+<script src="share.js?v=5"></script>
+<script src="mixexp.js?v=1"></script>
 </body>
 </html>

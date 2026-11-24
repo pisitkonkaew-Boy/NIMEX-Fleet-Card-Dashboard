@@ -131,48 +131,55 @@ function priceGap(bcpRows,ref){
   let w=0,g=0;bcpRows.forEach(r=>{const base=monthKey(r.date)+'|'+stProv(r.station)+'|'+prodClass(r.product);const p=ref[base+'|PTT'];if(!p||!p[0])return;g+=r.liter*(r.baht/r.liter-p[1]/p[0]);w+=r.liter;});
   return w?{gap:g/w,cov:w}:null;
 }
-function renderMixAnalysis(SM,rows){
-  const el=document.getElementById('mix-ana');if(!el)return;
+// ข้อมูลวิเคราะห์ (ใช้ทั้งหน้าเว็บและไฟล์ส่งออก)
+function mixAnalysisData(SM,rows){
   const ref=priceRef(),bcp=rows.filter(r=>r.prov==='BCP'),ptt=rows.filter(r=>r.prov==='PTT');
-  const bL=bcp.reduce((s,r)=>s+r.liter,0);if(!bL){el.innerHTML='<p class="note">ไม่มีการเติม BCP ในตัวกรองนี้ ✅</p>';return;}
-  const pg=priceGap(bcp,ref),stats=Object.values(SM),avgRate=stats.length?stats.reduce((s,o)=>s+o.rate*o.price*o.pttL,0)/Math.max(1,stats.reduce((s,o)=>s+o.pttL,0)):0;
-  const nB=pct(bcp.filter(isNight).reduce((s,r)=>s+r.liter,0),bL),nP=pct(ptt.filter(isNight).reduce((s,r)=>s+r.liter,0),ptt.reduce((s,r)=>s+r.liter,0));
-  const b20=pct(bcp.filter(r=>prodClass(r.product)==='B20').reduce((s,r)=>s+r.liter,0),bL);
-  const own=mixAgg(rows,r=>r.owner,SM),carAgg=mixAgg(rows,r=>r.plate,SM);
-  const onlyB=carAgg.filter(o=>o.bL>0&&o.pL===0),mixed=carAgg.filter(o=>o.bL>0&&o.pL>0);
-  const E=escH,gainAll=Object.entries(bcp.reduce((m,r)=>{const k=monthKey(r.date);m[k]=(m[k]||0)+r.liter;return m;},{})).reduce((s,[mk,l])=>s+(SM[mk]?gainIfMove(SM[mk],l):0),0);
-  // DC ที่เป็นจุดปัญหา
-  const ms=new Set(Object.keys(SM)),ux={pL:0,bL:0};(UNMATCHED||[]).forEach(r=>{if(!ms.has(monthKey(r.date)))return;if(r.prov==='PTT')ux.pL+=r.liter;else if(r.prov==='BCP')ux.bL+=r.liter;});
-  const dcs=mixAgg(rows,r=>r.dc,SM).filter(o=>o.bL>0).sort((a,b)=>b.bL-a.bL).slice(0,10);
-  const dcCards=dcs.map(o=>{
+  const bL=bcp.reduce((s,r)=>s+r.liter,0),pLt=ptt.reduce((s,r)=>s+r.liter,0);
+  const stats=Object.values(SM),avgRate=stats.length?stats.reduce((s,o)=>s+o.rate*o.price*o.pttL,0)/Math.max(1,stats.reduce((s,o)=>s+o.pttL,0)):0;
+  const A={bL,pL:pLt,avgRate,pg:priceGap(bcp,ref)};
+  A.nB=pct(bcp.filter(isNight).reduce((s,r)=>s+r.liter,0),bL);A.nP=pct(ptt.filter(isNight).reduce((s,r)=>s+r.liter,0),pLt);
+  A.b20=pct(bcp.filter(r=>prodClass(r.product)==='B20').reduce((s,r)=>s+r.liter,0),bL);
+  A.own=mixAgg(rows,r=>r.owner,SM).sort((a,b)=>a.sh-b.sh);
+  const carAgg=mixAgg(rows,r=>r.plate,SM);A.onlyB=carAgg.filter(o=>o.bL>0&&o.pL===0);A.mixed=carAgg.filter(o=>o.bL>0&&o.pL>0);
+  A.gainAll=Object.entries(bcp.reduce((m,r)=>{const k=monthKey(r.date);m[k]=(m[k]||0)+r.liter;return m;},{})).reduce((s,[mk,l])=>s+(SM[mk]?gainIfMove(SM[mk],l):0),0);
+  const ms=new Set(Object.keys(SM));A.ux={pL:0,bL:0};(UNMATCHED||[]).forEach(r=>{if(!ms.has(monthKey(r.date)))return;if(r.prov==='PTT')A.ux.pL+=r.liter;else if(r.prov==='BCP')A.ux.bL+=r.liter;});
+  A.dcs=mixAgg(rows,r=>r.dc,SM).filter(o=>o.bL>0).sort((a,b)=>b.bL-a.bL).slice(0,10).map(o=>{
     const rs=rows.filter(r=>r.dc===o.key),rb=rs.filter(r=>r.prov==='BCP'),rp=rs.filter(r=>r.prov==='PTT');
     const g=priceGap(rb,ref),night=pct(rb.filter(isNight).reduce((s,r)=>s+r.liter,0),o.bL),b2=pct(rb.filter(r=>prodClass(r.product)==='B20').reduce((s,r)=>s+r.liter,0),o.bL);
-    const st={};rb.forEach(r=>{const s=st[r.station]||(st[r.station]={n:0,l:0});s.n++;s.l+=r.liter;});
-    const topSt=Object.entries(st).sort((a,b)=>b[1].l-a[1].l).slice(0,3);
+    const st={};rb.forEach(r=>{const x=st[r.station]||(st[r.station]={n:0,l:0});x.n++;x.l+=r.liter;});
+    const topSt=Object.entries(st).sort((a,b)=>b[1].l-a[1].l).slice(0,3).map(([k,x])=>({name:(STATIONS[k]||{}).name||k,loc:(STATIONS[k]||{}).loc||'',n:x.n,l:x.l}));
     const provs=new Set(rb.map(r=>stProv(r.station)));const pttSt=new Set(rp.filter(r=>provs.has(stProv(r.station))).map(r=>r.station));
-    const cars=mixAgg(rs,r=>r.plate,SM).filter(c=>c.bL>0).sort((a,b)=>b.bL-a.bL);
-    const only=cars.filter(c=>c.pL===0).length;
+    const cars=mixAgg(rs,r=>r.plate,SM).filter(c=>c.bL>0).sort((a,b)=>b.bL-a.bL);const only=cars.filter(c=>c.pL===0).length;
     const why=[];
-    if(g){why.push(g.gap<-0.05?`BCP ถูกกว่า PTT ชนิดเดียวกัน ${Math.abs(g.gap).toFixed(2)} บ./ล. (ส่วนลด PTT ≈ ${avgRate.toFixed(2)} บ./ล.)`:g.gap>0.05?`BCP แพงกว่า PTT ${g.gap.toFixed(2)} บ./ล. — ไม่ใช่เรื่องราคา`:'ราคาใกล้เคียงกัน (ต่างไม่ถึง 5 สตางค์) — ไม่ใช่เรื่องราคา');}
+    if(g)why.push(g.gap<-0.05?`BCP ถูกกว่า PTT ชนิดเดียวกัน ${Math.abs(g.gap).toFixed(2)} บ./ล. (ส่วนลด PTT ≈ ${avgRate.toFixed(2)} บ./ล.)`:g.gap>0.05?`BCP แพงกว่า PTT ${g.gap.toFixed(2)} บ./ล. — ไม่ใช่เรื่องราคา`:'ราคาใกล้เคียงกัน (ต่างไม่ถึง 5 สตางค์) — ไม่ใช่เรื่องราคา');
     if(night>=25)why.push(`เติมกลางคืน (21:00–05:59) ${night.toFixed(0)}% ของลิตร BCP — ปั๊ม PTT บนเส้นทางอาจปิด/ไม่สะดวกช่วงนี้`);
     if(pttSt.size===0)why.push('ในจังหวัดที่เติม BCP รถ DC นี้ไม่เคยเติม PTT เลย — อาจไม่มีปั๊ม PTT ที่สะดวกบนเส้นทาง');
     else if(pttSt.size<=2)why.push(`ในจังหวัดเดียวกันรถ DC นี้ใช้ปั๊ม PTT แค่ ${pttSt.size} แห่ง`);
     if(only)why.push(`รถ ${only} คันเติม BCP อย่างเดียว`);
     if(b2>=30)why.push(`เป็น B20 ${b2.toFixed(0)}% ของลิตร BCP`);
-    return `<div class="anacard"><div class="anah"><b>${E(o.key.replace(/^\d+\s+/,''))}</b><small> ${E(o.zone||'')}</small><span class="bdg b-gray">BCP ${fmt(o.bL)} ล. · PTT ${o.sh.toFixed(0)}%</span>${o.gain>0?`<span class="bdg b-blue">ย้ายมา PTT ได้ส่วนลดเพิ่ม ≈ ฿${fmt(o.gain)}</span>`:''}</div>
-      <ul>${why.map(w=>`<li>${w}</li>`).join('')||'<li>ไม่พบสาเหตุเด่นจากข้อมูล — ควรสอบถามคนขับ/หัวหน้า DC</li>'}</ul>
-      <p class="flog">ปั๊ม BCP ที่ใช้บ่อย: ${topSt.map(([k,s])=>`${E((STATIONS[k]||{}).name||k)} <span>(${E((STATIONS[k]||{}).loc||'')} · ${s.n} ครั้ง · ${fmt(s.l)} ล.)</span>`).join(' · ')||'-'}<br>รถที่เติม BCP มากสุด: ${cars.slice(0,3).map(c=>`${E(c.key)} ${fmt(c.bL)} ล.${c.pL===0?' (BCP อย่างเดียว)':''}`).join(' · ')}</p></div>`;}).join('');
+    return Object.assign(o,{why,topSt,cars:cars.slice(0,3),gap:g,night});});
+  // ข้อความสรุป (ใช้ซ้ำในหน้าเว็บ ไฟล์ส่งออก และข้อความ LINE)
+  const pg=A.pg,L=[];
+  L.push(['ราคา',pg?(Math.abs(pg.gap)<0.05?`น้ำมันชนิดเดียวกัน จังหวัดเดียวกัน เดือนเดียวกัน ราคา BCP กับ PTT ต่างกันเฉลี่ยแค่ ${Math.abs(pg.gap).toFixed(3)} บ./ล.`:`BCP ${pg.gap<0?'ถูกกว่า':'แพงกว่า'} PTT เฉลี่ย ${Math.abs(pg.gap).toFixed(2)} บ./ล. (น้ำมันชนิดเดียวกัน จังหวัดเดียวกัน)`)+` · ส่วนลด PTT ≈ ${avgRate.toFixed(2)} บ./ล. → ${pg.gap>-avgRate?'หักส่วนลดแล้ว PTT คุ้มกว่า':'BCP ยังถูกกว่าแม้หักส่วนลด'} (เทียบได้ ${pct(pg.cov,bL).toFixed(0)}% ของลิตร BCP)`:'ไม่มีข้อมูลราคาเทียบ']);
+  L.push(['เวลา',`เติม BCP ช่วง 21:00–05:59 ${A.nB.toFixed(0)}% ของลิตร เทียบ PTT ${A.nP.toFixed(0)}%`+(A.nB>A.nP*1.5?' → รถวิ่งกลางคืนหันไปเติม BCP มากกว่าชัดเจน':'')]);
+  L.push(['เจ้าของรถ',A.own.map(o=>`${o.key} เติม PTT ${o.sh.toFixed(0)}% (BCP ${fmt(o.bL)} ล.)`).join(' · ')]);
+  L.push(['พฤติกรรม',`รถเติม BCP อย่างเดียว ${A.onlyB.length} คัน (${fmt(A.onlyB.reduce((s,o)=>s+o.bL,0))} ล.) · รถที่สลับเติมทั้งสองเจ้า ${A.mixed.length} คัน (BCP ${fmt(A.mixed.reduce((s,o)=>s+o.bL,0))} ล.)`]);
+  L.push(['ชนิดน้ำมัน',`B20 เป็น ${A.b20.toFixed(0)}% ของลิตร BCP (ราคาต่ำกว่าดีเซลปกติ ทำให้ราคาเฉลี่ย BCP ดูถูก)`]);
+  if(!GRP&&A.ux.bL>0)L.push(['รถที่ยังไม่อยู่ในฐาน',`เติม BCP ${fmt(A.ux.bL)} ล. (PTT ${pct(A.ux.pL,A.ux.pL+A.ux.bL).toFixed(0)}%) ไม่อยู่ในตารางราย DC แต่มีผลกับขั้นส่วนลด — เพิ่มรถเข้าฐานที่หน้า ตรวจข้อมูลรถ`]);
+  L.push(['ถ้าย้าย BCP ทั้งหมดมา PTT',`ส่วนลดเพิ่ม ≈ ฿${fmt(A.gainAll)}`+(stats.length>1?' (รวมทุกเดือนที่เลือก)':'')]);
+  A.lines=L;
+  return A;
+}
+function renderMixAnalysis(SM,rows){
+  const el=document.getElementById('mix-ana');if(!el)return;
+  const A=mixAnalysisData(SM,rows),E=escH;
+  if(!A.bL){el.innerHTML='<p class="note">ไม่มีการเติม BCP ในตัวกรองนี้ ✅</p>';return;}
+  const dcCards=A.dcs.map(o=>`<div class="anacard"><div class="anah"><b>${E(o.key.replace(/^\d+\s+/,''))}</b><small> ${E(o.zone||'')}</small><span class="bdg b-gray">BCP ${fmt(o.bL)} ล. · PTT ${o.sh.toFixed(0)}%</span>${o.gain>0?`<span class="bdg b-blue">ย้ายมา PTT ได้ส่วนลดเพิ่ม ≈ ฿${fmt(o.gain)}</span>`:''}</div>
+      <ul>${o.why.map(w=>`<li>${w}</li>`).join('')||'<li>ไม่พบสาเหตุเด่นจากข้อมูล — ควรสอบถามคนขับ/หัวหน้า DC</li>'}</ul>
+      <p class="flog">ปั๊ม BCP ที่ใช้บ่อย: ${o.topSt.map(t=>`${E(t.name)} <span>(${E(t.loc)} · ${t.n} ครั้ง · ${fmt(t.l)} ล.)</span>`).join(' · ')||'-'}<br>รถที่เติม BCP มากสุด: ${o.cars.map(c=>`${E(c.key)} ${fmt(c.bL)} ล.${c.pL===0?' (BCP อย่างเดียว)':''}`).join(' · ')}</p></div>`).join('');
   el.innerHTML=`
     <div class="card"><h2>สรุปสาเหตุจากข้อมูล${GRP?' · '+E(GRP):''}</h2>
-      <ul class="anasum">
-        <li><b>ราคา:</b> ${pg?(Math.abs(pg.gap)<0.05?`น้ำมันชนิดเดียวกัน จังหวัดเดียวกัน เดือนเดียวกัน ราคา BCP กับ PTT <b>ต่างกันเฉลี่ยแค่ ${Math.abs(pg.gap).toFixed(3)} บ./ล.</b>`:`BCP ${pg.gap<0?'ถูกกว่า':'แพงกว่า'} PTT เฉลี่ย <b>${Math.abs(pg.gap).toFixed(2)} บ./ล.</b> (น้ำมันชนิดเดียวกัน จังหวัดเดียวกัน)`)+` ขณะที่ส่วนลด PTT ≈ <b>${avgRate.toFixed(2)} บ./ล.</b> → ${pg.gap>-avgRate?'หักส่วนลดแล้ว <b>PTT คุ้มกว่า</b>':'BCP ยังถูกกว่าแม้หักส่วนลด'} (เทียบได้ ${pct(pg.cov,bL).toFixed(0)}% ของลิตร BCP)`:'ไม่มีข้อมูลราคาเทียบ'}</li>
-        <li><b>เวลา:</b> เติม BCP ช่วง 21:00–05:59 <b>${nB.toFixed(0)}%</b> ของลิตร เทียบ PTT ${nP.toFixed(0)}% ${nB>nP*1.5?'→ <b>รถวิ่งกลางคืนหันไปเติม BCP มากกว่าชัดเจน</b>':''}</li>
-        <li><b>เจ้าของรถ:</b> ${own.sort((a,b)=>a.sh-b.sh).map(o=>`${E(o.key)} เติม PTT ${o.sh.toFixed(0)}% (BCP ${fmt(o.bL)} ล.)`).join(' · ')}</li>
-        <li><b>พฤติกรรม:</b> รถเติม BCP อย่างเดียว ${onlyB.length} คัน (${fmt(onlyB.reduce((s,o)=>s+o.bL,0))} ล.) · รถที่สลับเติมทั้งสองเจ้า ${mixed.length} คัน (BCP ${fmt(mixed.reduce((s,o)=>s+o.bL,0))} ล.)</li>
-        <li><b>ชนิดน้ำมัน:</b> B20 เป็น ${b20.toFixed(0)}% ของลิตร BCP (ราคาต่ำกว่าดีเซลปกติ ทำให้ราคาเฉลี่ย BCP ดูถูก)</li>
-        ${!GRP&&ux.bL>0?`<li><b>รถที่ยังไม่อยู่ในฐาน:</b> เติม BCP <b>${fmt(ux.bL)} ล.</b> (PTT ${pct(ux.pL,ux.pL+ux.bL).toFixed(0)}%) ไม่แสดงในตารางด้านบน แต่มีผลกับขั้นส่วนลด — เพิ่มรถเข้าฐานที่หน้า ตรวจข้อมูลรถ (ผู้ดูแล) เพื่อให้วิเคราะห์ได้ครบ</li>`:''}
-        <li><b>ถ้าย้าย BCP ทั้งหมดในตัวกรองนี้มา PTT:</b> ส่วนลดเพิ่ม ≈ <b>฿${fmt(gainAll)}</b>${stats.length>1?' (รวมทุกเดือนที่เลือก)':''}</li>
-      </ul></div>
+      <ul class="anasum">${A.lines.map(([h,t])=>`<li><b>${E(h)}:</b> ${E(t)}</li>`).join('')}</ul></div>
     <div class="card"><h2>10 DC ที่เติม BCP มากที่สุด</h2><p class="note" style="text-align:left">เรียงตามลิตร BCP · สาเหตุคำนวณจากข้อมูลการเติมจริง (ราคา เวลา ปั๊ม รถ) — ใช้เป็นจุดเริ่มคุยกับ DC</p><div class="anagrid">${dcCards}</div></div>`;
 }
 function expMix(){
