@@ -51,8 +51,8 @@ function vehPA(d){const m={};(d.all_vehicles||[]).forEach(v=>{m[v[0]]={paL:v[5],
 // รวมตามมิติ: ลิตร/บาท จากแถวข้อมูล · PA = ผลรวม PA ของรถ (ไม่ซ้ำ) ที่อยู่ในมิตินั้น
 function aggBy(rows,keyFn,pa){
   const m={};
-  rows.forEach(r=>{const k=keyFn(r);const o=m[k]||(m[k]={key:k,l:0,b:0,ps:0,pn:0,plates:new Set()});o.l+=r.liter;o.b+=r.baht;o.plates.add(r.plate);if(r.price>0){o.ps+=r.price;o.pn++;}});
-  return Object.values(m).map(o=>{let paL=0,paB=0,nPA=0;o.plates.forEach(p=>{const v=pa[p];if(v&&v.paL>0){paL+=v.paL;nPA++;}if(v&&v.paB>0)paB+=v.paB;});
+  rows.forEach(r=>{const k=keyFn(r);const o=m[k]||(m[k]={key:k,l:0,b:0,ps:0,pn:0,plates:new Set(),idle:new Set()});if(r.idle){o.idle.add(r.plate);return;}o.l+=r.liter;o.b+=r.baht;o.plates.add(r.plate);if(r.price>0){o.ps+=r.price;o.pn++;}});
+  return Object.values(m).filter(o=>o.plates.size).map(o=>{let paL=0,paB=0,nPA=0;new Set([...o.plates,...o.idle]).forEach(p=>{const v=pa[p];if(v&&v.paL>0){paL+=v.paL;nPA++;}if(v&&v.paB>0)paB+=v.paB;});
     return {key:o.key,l:o.l,b:o.b,n:o.plates.size,nPA,paL,paB,pctL:paL>0?o.l/paL*100:null,pctB:paB>0?o.b/paB*100:null,price:o.pn?o.ps/o.pn:null};});
 }
 function prevInfo(){
@@ -75,11 +75,11 @@ function ctx(){
   const fb=GCFG.basis==='proj'&&!f;  // ทุกเดือน: คาดการณ์ไม่ได้ ใช้ %PA ที่ใช้ไปแล้ว
   const val=(p,ff)=>p==null?null:(mode==='proj'?p*ff:p);
   const pa=vehPA(D),paAll=vehPA(dAll);
-  const go=aggBy(monthRows,r=>r.group+' · '+r.owner,paAll).sort((a,b)=>a.key.localeCompare(b.key,'th'));
+  const go=aggBy(monthRows.concat(idleRows(dAll)),r=>r.group+' · '+r.owner,paAll).sort((a,b)=>a.key.localeCompare(b.key,'th'));
   go.forEach(o=>{o.proj=o.pctL!=null&&fAll?o.pctL*fAll:null;o.val=val(o.pctL,fAll);o.g=gradeOf(o.val);});
-  const dcs=aggBy(CUR_ROWS,r=>r.dc,pa),vt=aggBy(CUR_ROWS,r=>r.vtype,pa).sort((a,b)=>b.l-a.l);
+  const cr=CUR_ROWS.concat(idleRows(D)),dcs=aggBy(cr,r=>r.dc,pa),vt=aggBy(cr,r=>r.vtype,pa).sort((a,b)=>b.l-a.l);
   [dcs,vt].forEach(a=>a.forEach(o=>{o.proj=o.pctL!=null&&f?o.pctL*f:null;o.val=val(o.pctL,f);o.g=gradeOf(o.val);}));
-  const veh=(D.all_vehicles||[]).filter(v=>v[5]>0).map(v=>{const p=v[4]/v[5]*100;return {plate:v[0],group:v[1],dc:v[2],owner:v[3],l:v[4],paL:v[5],pctL:p,proj:f?p*f:null,val:val(p,f),g:gradeOf(val(p,f))};});
+  const veh=(D.all_vehicles||[]).filter(v=>v[5]>0&&v[4]>0).map(v=>{const p=v[4]/v[5]*100;return {plate:v[0],group:v[1],dc:v[2],owner:v[3],l:v[4],paL:v[5],pctL:p,proj:f?p*f:null,val:val(p,f),g:gradeOf(val(p,f))};});
   const gcount={};GRADES.forEach(g=>gcount[g]=0);veh.forEach(v=>{if(v.g)gcount[v.g]++;});
   const fleetPct=pct(D.total_liters,D.pa_liters),fleetVal=D.pa_liters>0?val(fleetPct,f):null;
   _ctx={mk,f,mode,fb,go,dcs,vt,veh,gcount,fleetPct,fleetProj:f&&D.pa_liters>0?fleetPct*f:null,fleetVal,fleetG:gradeOf(fleetVal),prev:prevInfo(),

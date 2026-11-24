@@ -133,7 +133,8 @@ const TAB_INFO={
   vehicles:['รายละเอียดรถ','การใช้น้ำมันรายทะเบียน'],
   trend:['เทรนด์รายวัน','การใช้น้ำมันและราคารายวัน'],
   alert:['แจ้งเตือน','รถที่เกินหรือใกล้เกิน PA'],
-  analysis:['วิเคราะห์แนวโน้ม','คาดการณ์การใช้เทียบ PA']
+  analysis:['วิเคราะห์แนวโน้ม','คาดการณ์การใช้เทียบ PA'],
+  fleetdb:['ฐานข้อมูลรถ','รถ วงเงิน PA และตาราง DC → ภาค']
 };
 function goTab(id){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
@@ -141,6 +142,7 @@ function goTab(id){
   document.getElementById('tab-'+id).classList.add('on');
   const ti=TAB_INFO[id]; if(ti){document.getElementById('page-eyebrow').textContent=ti[0];document.getElementById('page-title').textContent=ti[1];}
   window.scrollTo({top:0});
+  if(id==='fleetdb') renderFleetDB();
   if(!D) return;
   if(id==='dc') renderDCTab();
   if(id==='vehicles') renderVeh();
@@ -632,6 +634,7 @@ function computeFromRows(rows){
     if(r.paBaht>0) vMap[r.plate].paBaht=r.paBaht;
     if(r.paLiter>0) vMap[r.plate].paLiter=r.paLiter;
   });
+  if(typeof fleetPA==='function') fleetPA(vMap,rows);   // PA จากฐานรถ: รถทุกคันที่ยังใช้งาน
   const vs=Object.values(vMap);
   const paL=vs.reduce((s,v)=>s+(v.paLiter>0?v.paLiter:0),0);
   const paB=vs.reduce((s,v)=>s+(v.paBaht>0?v.paBaht:0),0);
@@ -668,11 +671,11 @@ function computeFromRows(rows){
   const near_pa=all_vehicles.filter(r=>r[5]>0&&r[6]>80&&r[6]<=100).sort((a,b)=>b[6]-a[6]);
 
   return{period,total_liters:round1(tL),total_baht:round1(tB),pa_liters:round1(paL),pa_baht:round1(paB),
-    vehicles:vs.length,dcs:[...new Set(rows.map(r=>r.dc))].length,transactions:rows.length,avg_price:+avgP.toFixed(2),
+    vehicles:vs.filter(v=>!v.idle).length,dcs:[...new Set(rows.map(r=>r.dc))].length,transactions:rows.length,avg_price:+avgP.toFixed(2),
     by_group,by_owner,by_vtype,daily,daily_price,daily_grp,dc_summary,
     top_gk_own:t10('กระจาย','ผปก'),top_gk_co:t10('กระจาย','บริษัท'),
     top_kn_own:t10('ขนย้าย','ผปก'),top_kn_co:t10('ขนย้าย','บริษัท'),
-    all_vehicles,over_pa,near_pa};
+    all_vehicles,over_pa,near_pa,idle:vs.filter(v=>v.idle)};
 }
 function round1(n){return Math.round(n*10)/10}
 
@@ -1151,9 +1154,11 @@ async function loadData(fresh){
   const j=await (await fetch(url,{cache:fresh?'no-store':'default'})).json();
   if(!j||!j.ok) throw new Error('bad data');
   const p=parseRaw([j.headers,...j.rows]);              // กติกาเดียวกับการเติมไฟล์ (#N/A, ลิตร ≤ 0)
+  const nParsed=p.parsed.length;
+  p.parsed=applyFleetDB(p.parsed,j);                   // ข้อมูลรถจากฐานรถ (fleetdb.js)
   const dates=[...new Set(p.parsed.map(r=>r.date))].sort(dateCmp);
   STORE={'__sheet__':{rows:p.parsed,filename:'Google Sheet',range:(dates[0]||'')+' – '+(dates[dates.length-1]||''),dates}};
-  SHEET_INFO={raw:j.rows.length,kept:p.parsed.length,na:p.naDropped,skip:j.rows.length-p.parsed.length-p.naDropped,updated:j.updated};
+  SHEET_INFO={raw:j.rows.length,kept:p.parsed.length,na:p.naDropped,skip:j.rows.length-nParsed-p.naDropped,updated:j.updated,unmatched:UNMATCHED.length};
   window.SHEET_SETTINGS=j.settings||null;
   if(typeof onSheetSettings==='function') onSheetSettings(window.SHEET_SETTINGS);
   rebuildAllRows();
@@ -1242,7 +1247,7 @@ async function commitPlan(){
 function renderChecks(){
   const f=document.getElementById('flist');if(!f||!SHEET_INFO)return;
   const I=SHEET_INFO;
-  f.innerHTML=`ใน Google Sheet ${fmt(I.raw)} แถว · ใช้ได้ ${fmt(I.kept)} แถว`+(I.na?` · <span class="badt">ตัด #N/A ${fmt(I.na)} แถว</span>`:'')+(I.skip?` · <span class="badt">ข้ามแถวไม่มีทะเบียนหรือลิตร ≤ 0 อีก ${fmt(I.skip)} แถว</span>`:'')+(I.updated?` · โหลดเมื่อ ${new Date(I.updated).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}`:'');
+  f.innerHTML=`ใน Google Sheet ${fmt(I.raw)} แถว · ใช้ได้ ${fmt(I.kept)} แถว`+(I.na?` · <span class="badt">ตัด #N/A ${fmt(I.na)} แถว</span>`:'')+(I.skip?` · <span class="badt">ข้ามแถวไม่มีทะเบียนหรือลิตร ≤ 0 อีก ${fmt(I.skip)} แถว</span>`:'')+(I.unmatched?` · <span class="badt">ทะเบียนไม่อยู่ในฐานรถ ${fmt(I.unmatched)} แถว · ${fmt(UNMATCHED.reduce((s,r)=>s+r.liter,0))} ลิตร · ${fmt(unmatchedSummary().length)} ทะเบียน (ไม่ถูกนับ)</span> <button class="btn alt btn-sm" onclick="exportUnmatched()">ดาวน์โหลดรายการ</button>`:'')+(I.updated?` · โหลดเมื่อ ${new Date(I.updated).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}`:'');
   const m={};ALL_ROWS.forEach(r=>{const k=monthKey(r.date);if(!m[k])m[k]={n:0,d:new Set(),l:0,b:0,p:new Set()};const o=m[k];o.n++;o.d.add(r.date);o.l+=r.liter;o.b+=r.baht;o.p.add(r.plate);});
   const ks=Object.keys(m).sort((a,b)=>{const x=a.split('/'),y=b.split('/');return (+x[1]*100+ +x[0])-(+y[1]*100+ +y[0]);});
   document.getElementById('chk-tbody').innerHTML=ks.map(k=>{const o=m[k];return `<tr><td>${escH(monthLabel(k))}</td><td class="r">${fmt(o.n)}</td><td class="r">${o.d.size}</td><td class="r">${fmt(o.l)}</td><td class="r">฿${fmt(o.b)}</td><td class="r">${fmt(o.p.size)}</td></tr>`;}).join('')||'<tr><td colspan="6" style="text-align:center">ยังไม่มีข้อมูล</td></tr>';

@@ -230,6 +230,9 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 @media (min-width:1600px){.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}}
 /* admin-only / loading */
 body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
+#fdb-table tr.off td{color:var(--muted)}
+#m-car .field input,#m-car .field select{width:100%;box-sizing:border-box}
+#m-car .field select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;min-height:44px;color:var(--ink)}
 .content.loading .tab,.content.loading .chips{display:none!important}
 #boot{text-align:center;display:grid;gap:10px;justify-items:center;padding:28px 16px}
 #boot[hidden]{display:none}
@@ -263,6 +266,7 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
     <button data-tab="trend" onclick="goTab('trend')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>เทรนด์รายวัน</button>
     <button data-tab="alert" onclick="goTab('alert')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L2 20h20z"/><path d="M12 10v4"/><path d="M12 17v.5"/></svg>แจ้งเตือน <span class="nb" id="abadge">0</span></button>
     <button data-tab="analysis" onclick="goTab('analysis')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/><path d="M8 13l2-2 2 2 2-3"/></svg>วิเคราะห์แนวโน้ม <span class="nb" id="forecast-badge" style="display:none">0</span></button>
+    <button data-tab="fleetdb" class="adm" onclick="goTab('fleetdb')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h12v10H2z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>ฐานรถ <span class="adm-tag">ผู้ดูแล</span></button>
     <button data-tab="settings" class="adm" onclick="goTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>ตั้งค่า <span class="adm-tag">ผู้ดูแล</span></button>
     <div class="foot">กด 1–6 สลับหน้า · / ค้นหา · Esc ปิด</div>
   </nav>
@@ -566,6 +570,35 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
         </div>
       </section>
       <!-- ══ TAB SETTINGS (เห็นเฉพาะผู้ดูแล) ══ -->
+      <section class="tab adm" id="tab-fleetdb">
+        <div class="card">
+          <h2>ฐานข้อมูลรถ</h2>
+          <p class="note" style="text-align:left">ข้อมูลรถทุกหน้า (กลุ่ม, DC, ภาค, เจ้าของ, PA) มาจากตารางนี้ จับคู่กับการเติมน้ำมันด้วยทะเบียน · แก้แล้วใช้กับทุกเดือนทันที · รถเลิกใช้ให้ใส่ "วันที่เลิกใช้" (เดือนที่เลิกและก่อนหน้ายังนับ PA)</p>
+          <div class="stats" id="fdb-stats"></div>
+          <div class="tools">
+            <input id="fdb-q" type="search" placeholder="ค้นหา ทะเบียน / รหัส / DC" oninput="fdbFilter('q',this.value)" style="max-width:240px">
+            <select onchange="fdbFilter('grp',this.value)"><option value="">ทุกกลุ่ม</option><option>กระจาย</option><option>ขนย้าย</option><option>Lay</option><option>รถใช้งานบริษัท</option></select>
+            <select id="fdb-zone" onchange="fdbFilter('zone',this.value)"><option value="">ทุกภาค</option></select>
+            <select onchange="fdbFilter('st',this.value)"><option value="act">ใช้งาน</option><option value="off">เลิกใช้</option><option value="all">ทั้งหมด</option></select>
+            <span class="flog" id="fdb-count"></span>
+          </div>
+          <div class="btns">
+            <button class="btn goldb" onclick="openCar('')">+ เพิ่มรถ</button>
+            <button class="btn alt" onclick="document.getElementById('fdb-file').click()">นำเข้า Excel</button>
+            <button class="btn alt" onclick="fdbExport()">ส่งออก Excel</button>
+            <input type="file" id="fdb-file" accept=".xlsx,.xls" style="display:none" onchange="fdbFile(event)">
+          </div>
+          <p class="msg" id="fdb-msg" role="status"></p>
+          <div id="fdb-plan" class="plan"></div>
+          <div class="sb2" style="max-height:620px"><table class="dt" id="fdb-table"><thead><tr><th>ทะเบียน</th><th>รหัสรถ</th><th>กลุ่ม</th><th>DC</th><th>ภาค</th><th>ประเภท</th><th>เจ้าของ</th><th class="r">PA ลิตร</th><th class="r">วงเงินบาท</th><th>สถานะ</th><th></th></tr></thead><tbody id="fdb-body"></tbody></table></div>
+        </div>
+        <div class="card">
+          <h2>ตาราง DC → ภาค</h2>
+          <p class="note" style="text-align:left">นำเข้าไฟล์ภาค (คอลัมน์ DC, ชื่อ DC, Zone) ได้จากปุ่ม นำเข้า Excel ด้านบน · DC ซ้ำใช้ค่าใหม่</p>
+          <div class="btns"><button class="btn alt" onclick="openZone('')">+ เพิ่ม DC</button></div>
+          <div class="sb2" style="max-height:480px"><table class="dt"><thead><tr><th>รหัส</th><th>ชื่อ DC</th><th>ภาค</th><th class="r">รถใช้งาน</th><th></th></tr></thead><tbody id="zone-body"></tbody></table></div>
+        </div>
+      </section>
       <section class="tab adm" id="tab-settings">
         <div class="card">
           <h2>เติมไฟล์</h2>
@@ -625,10 +658,18 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
   <button data-tab="trend" onclick="goTab('trend')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>เทรนด์</button>
   <button data-tab="alert" onclick="goTab('alert')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L2 20h20z"/><path d="M12 10v4"/><path d="M12 17v.5"/></svg>แจ้งเตือน<span class="nb" data-mirror="abadge"></span></button>
   <button data-tab="analysis" onclick="goTab('analysis')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/><path d="M8 13l2-2 2 2 2-3"/></svg>วิเคราะห์<span class="nb" data-mirror="forecast-badge"></span></button>
+  <button data-tab="fleetdb" class="adm" onclick="goTab('fleetdb')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h12v10H2z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>ฐานรถ</button>
   <button data-tab="settings" class="adm" onclick="goTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>ตั้งค่า</button>
 </nav>
 
 <!-- ══ MODALS ══ -->
+<div class="moverlay" id="m-car">
+  <div class="mbox" style="max-width:640px">
+    <div class="mtitle"><span id="m-car-title">รถ</span> <button class="mclose" onclick="closeM('m-car')" aria-label="ปิด">✕</button></div>
+    <div id="m-car-body"></div>
+  </div>
+</div>
+
 <div class="moverlay" id="m-login">
   <div class="mbox" style="max-width:420px">
     <div class="mtitle">ผู้ดูแลระบบ <button class="mclose" onclick="closeM('m-login')" aria-label="ปิด">✕</button></div>
@@ -674,7 +715,8 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
   </div>
 </div>
 
-<script src="app.js?v=2"></script>
-<script src="share.js?v=2"></script>
+<script src="fleetdb.js?v=1"></script>
+<script src="app.js?v=3"></script>
+<script src="share.js?v=3"></script>
 </body>
 </html>
