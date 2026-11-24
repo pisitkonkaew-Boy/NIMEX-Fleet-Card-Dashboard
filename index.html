@@ -231,6 +231,11 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 /* admin-only / loading */
 body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
 #fdb-table tr.off td{color:var(--muted)}
+#seg-sub{display:flex;gap:2px;background:rgba(0,0,0,.22);border-radius:10px;padding:2px;margin-right:6px}
+#seg-sub[hidden]{display:none}
+#seg-sub button{border:0;background:transparent;color:var(--on-navy-m);padding:5px 10px;border-radius:8px;font-family:var(--font-h);font-size:12.5px;white-space:nowrap;min-height:32px}
+#seg-sub button[aria-pressed="true"]{background:rgba(240,213,122,.95);color:#0a2a5e;font-weight:600}
+.filters{flex-wrap:wrap}
 .fleet-toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;z-index:99;font-size:14px;max-width:90vw}
 .fleet-toast.on{opacity:1;transform:translateX(-50%)}
 #tab-fleetchk .card h2 small{font-weight:400;margin-left:6px}
@@ -282,11 +287,12 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
     <header class="top">
       <div class="top-grid">
         <div id="seg-group" role="group" aria-label="กลุ่มรถ">
-          <button data-grp="" aria-pressed="true" onclick="setGroup('')">ทั้งหมด</button>
-          <button data-grp="กระจาย" aria-pressed="false" onclick="setGroup('กระจาย')">กระจาย</button>
-          <button data-grp="ขนย้าย" aria-pressed="false" onclick="setGroup('ขนย้าย')">ขนย้าย</button>
+          <button data-main="" aria-pressed="true" onclick="setMain('')">ทั้งหมด</button>
+          <button data-main="sys" aria-pressed="false" onclick="setMain('sys')">รถระบบ</button>
+          <button data-main="ops" aria-pressed="false" onclick="setMain('ops')">รถใช้งานและคลัง</button>
         </div>
         <div class="filters" id="filters">
+          <div id="seg-sub" role="group" aria-label="กลุ่มย่อย" hidden></div>
           <span class="lb">เดือน</span>
           <select id="f-month" onchange="applyMonthFilter()" aria-label="เลือกเดือน">
             <option value="">ทุกเดือน (รวม)</option>
@@ -370,6 +376,12 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
           </div>
         </div>
 
+        <div class="card">
+          <h2>ผลรายภาค</h2>
+          <p class="note">PA = รถทุกคันที่ยังใช้งานในภาค · รถ = เติม/ใช้งานทั้งหมด · แตะหัวตารางเพื่อเรียง · แตะแถวเพื่อดู DC ในภาคนั้น</p>
+          <div class="sb2"><table class="dt"><thead><tr><th>#</th><th>ภาค</th><th class="r">ลิตร</th><th class="r">บาท</th><th class="r">PA ลิตร</th><th>%PA ลิตร</th><th class="r">%PA บาท</th><th class="r">รถ (คัน)</th><th class="r">DC</th><th style="min-width:110px">สัดส่วน</th></tr></thead><tbody id="zone-tbody"></tbody></table></div>
+        </div>
+
         <div class="sec">Top DC <span class="bdg b-gray" id="dc-cnt">—</span></div>
         <div class="grid2">
           <div class="card" data-grp="กระจาย">
@@ -418,13 +430,14 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
           <h2>รายละเอียดทุก DC</h2>
           <p class="note">แตะหัวตารางเพื่อเรียง · แตะแถวเพื่อดูรถใน DC นั้น</p>
           <div class="tools">
-            <select id="f-dcgrp" onchange="renderDCTab()" aria-label="กลุ่ม"><option value="">ทุกกลุ่ม</option><option>กระจาย</option><option>ขนย้าย</option></select>
+            <select id="f-dcgrp" onchange="renderDCTab()" aria-label="กลุ่ม"><option value="">ทุกกลุ่ม</option><option>กระจาย</option><option>ขนย้าย</option><option>Lay</option><option>รถใช้งานบริษัท</option></select>
+            <select id="f-dczone" onchange="setZone(this.value)" aria-label="ภาค"><option value="">ทุกภาค</option></select>
             <input id="f-dcsearch" type="search" placeholder="ค้นหาชื่อ DC..." oninput="renderDCTab()">
             <button class="btn alt btn-sm" onclick="expDC()">⬇ Excel <span class="export-notice" id="dc-exp-notice"></span></button>
           </div>
           <div class="sb2">
             <table class="dt">
-              <thead><tr><th>#</th><th>DC</th><th>กลุ่ม</th><th class="r">ลิตร</th><th class="r">บาท</th><th class="r">รถ (คัน)</th><th style="min-width:110px">% รวม</th><th></th></tr></thead>
+              <thead><tr><th>#</th><th>DC</th><th>ภาค</th><th>กลุ่ม</th><th class="r">ลิตร</th><th class="r">บาท</th><th class="r">PA ลิตร</th><th>%PA</th><th class="r">รถ (เติม/ทั้งหมด)</th><th style="min-width:110px">% รวม</th><th></th></tr></thead>
               <tbody id="dc-tbody"></tbody>
             </table>
           </div>
@@ -437,7 +450,8 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
           <h2>รายละเอียดรถทุกคัน</h2>
           <p class="note">แสดงสูงสุด 300 คันแรกตามลิตร · แตะแถวเพื่อดูรายละเอียด</p>
           <div class="tools">
-            <select id="f-vgrp" onchange="renderVeh()" aria-label="กลุ่ม"><option value="">ทุกกลุ่ม</option><option>กระจาย</option><option>ขนย้าย</option></select>
+            <select id="f-vgrp" onchange="renderVeh()" aria-label="กลุ่ม"><option value="">ทุกกลุ่ม</option><option>กระจาย</option><option>ขนย้าย</option><option>Lay</option><option>รถใช้งานบริษัท</option></select>
+            <select id="f-vzone" onchange="setZone(this.value)" aria-label="ภาค"><option value="">ทุกภาค</option></select>
             <select id="f-vown" onchange="renderVeh()" aria-label="เจ้าของ"><option value="">ทุกเจ้าของ</option><option>ผปก</option><option>บริษัท</option></select>
             <select id="f-vdc" onchange="renderVeh()" aria-label="DC"><option value="">ทุก DC</option></select>
             <select id="f-vpct" onchange="renderVeh()" aria-label="%PA">
@@ -449,7 +463,7 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
           </div>
           <div class="sb2">
             <table class="dt">
-              <thead><tr><th>#</th><th>ทะเบียน</th><th>กลุ่ม</th><th>DC</th><th>เจ้าของ</th><th class="r">ลิตรใช้</th><th class="r">PA ลิตร</th><th>%PA</th><th class="r">บาทใช้</th><th>สถานะ</th></tr></thead>
+              <thead><tr><th>#</th><th>ทะเบียน</th><th>กลุ่ม</th><th>DC</th><th>ภาค</th><th>เจ้าของ</th><th class="r">ลิตรใช้</th><th class="r">PA ลิตร</th><th>%PA</th><th class="r">บาทใช้</th><th>สถานะ</th></tr></thead>
               <tbody id="veh-tbody"></tbody>
             </table>
           </div>
@@ -736,9 +750,9 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
   </div>
 </div>
 
-<script src="fleetdb.js?v=2"></script>
-<script src="fuel.js?v=1"></script>
-<script src="app.js?v=4"></script>
-<script src="share.js?v=3"></script>
+<script src="fleetdb.js?v=3"></script>
+<script src="fuel.js?v=2"></script>
+<script src="app.js?v=5"></script>
+<script src="share.js?v=4"></script>
 </body>
 </html>

@@ -60,7 +60,7 @@ function prevInfo(){
   const [m,y]=mk.split('/').map(Number),pm=m===1?12:m-1,py=m===1?y-1:y,pmk=String(pm).padStart(2,'0')+'/'+py;
   const lastDay=Math.max(...CUR_ROWS.map(r=>+r.date.split('/')[0]));
   let rows=ALL_ROWS.filter(r=>monthKey(r.date)===pmk&&+r.date.split('/')[0]<=lastDay);
-  if(GRP)rows=rows.filter(r=>r.group===GRP);
+  if(GRP)rows=rows.filter(r=>inGrp(r.group));
   if(!rows.length)return null;
   return {mk:pmk,lastDay,d:computeFromRows(rows),label:`1–${lastDay} ${monthLabel(pmk)}`};
 }
@@ -152,7 +152,7 @@ function summaryText(){
   if(picked.has('dcw')){sec('📍 DC %PA สูงสุด ('+C.basisLabel+')');dcwList().slice(0,5).forEach((o,i)=>L.push(`${MD[i]} ${dcName(o.key)} (${o.n} คัน): ${pf(o.val)}${o.g?' · '+o.g:''}`));}
   if(picked.has('vt')){sec('🚚 ตามประเภทรถ');C.vt.forEach(o=>L.push(`• ${o.key} (${o.n} คัน): ${fmt(o.l)} ล. (${(o.l/d.total_liters*100).toFixed(1)}%)`));}
   if(picked.has('daily')&&d.daily.length){sec('📅 การใช้รายวัน');const mx=d.daily.reduce((a,b)=>b[1]>a[1]?b:a);L.push(`📈 วันที่ใช้สูงสุด: ${mx[0]} ${fmt(mx[1])} ลิตร`);L.push(`📊 เฉลี่ย ${fmt(d.total_liters/d.daily.length)} ลิตร/วัน (${d.daily.length} วัน)`);}
-  if(picked.has('dc')){['กระจาย','ขนย้าย'].filter(g=>!GRP||g===GRP).forEach(g=>{const t=topDCs(g,3);if(!t.length)return;sec(`🏆 DC ใช้น้ำมันสูงสุด · ${g}`);t.forEach((r,i)=>L.push(`${MD[i]} ${dcName(r[0])} (${r[4]} คัน): ${fmt(r[2])} ล.`));});}
+  if(picked.has('dc')){['กระจาย','ขนย้าย','Lay','รถใช้งานบริษัท'].filter(inGrp).forEach(g=>{const t=topDCs(g,3);if(!t.length)return;sec(`🏆 DC ใช้น้ำมันสูงสุด · ${g}`);t.forEach((r,i)=>L.push(`${MD[i]} ${dcName(r[0])} (${r[4]} คัน): ${fmt(r[2])} ล.`));});}
   if(picked.has('plates')){sec('🔢 ทะเบียนใช้น้ำมันสูงสุด');(d.all_vehicles||[]).slice(0,3).forEach((v,i)=>L.push(`${MD[i]} ${v[0]} (${v[1]} / ${dcName(v[2])}): ${fmt(v[4])} ล.${v[5]>0?' · '+v[6].toFixed(1)+'% PA':''}`));}
   if(picked.has('alert')){sec(`🚨 เกิน PA ${(d.over_pa||[]).length} คัน · ⚠️ ใกล้เกิน (80–100%) ${(d.near_pa||[]).length} คัน`);(d.over_pa||[]).slice(0,5).forEach((r,i)=>L.push(`${MD[i]} ${r[0]} (${dcName(r[2])}): ${r[6].toFixed(1)}% ของ PA`));}
   BWM.forEach(([m])=>{if(!picked.has('bw_'+m))return;const a=bwOf(C.dcs,m,5),b=bwOf(C.go,m,3);sec('🥇 ดีสุด / แย่สุด · '+bwLabel(m)+' (ต่ำ = ดี)');
@@ -170,7 +170,7 @@ function tables(key){
   if(key==='dcw')return {title:'DC %PA สูงสุด 10 อันดับ ('+C.basisLabel+')',head:['DC','รถ (คัน)','ลิตร','PA ลิตร','%PA ใช้แล้ว','%PA คาดการณ์',...gH],rows:dcwList().map(o=>[dcName(o.key),o.n,r1(o.l),r1(o.paL),r1(o.pctL),r1(o.proj),...gV(o)])};
   if(key==='vt')return {title:'ตามประเภทรถ',head:['ประเภทรถ','รถ (คัน)','ลิตร','สัดส่วน %','%PA ใช้แล้ว',...gH],rows:C.vt.map(o=>[o.key,o.n,r1(o.l),r1(o.l/d.total_liters*100),r1(o.pctL),...gV(o)])};
   if(key==='daily'){const gm={};(d.daily_grp||[]).forEach(r=>{(gm[r[0]]||(gm[r[0]]={}))[r[1]]=r[2];});return {title:'การใช้น้ำมันรายวัน',head:['วันที่','ลิตร','บาท','ราคา ฿/ล.','กระจาย (ล.)','ขนย้าย (ล.)'],rows:d.daily.map((r,i)=>[r[0],r[1],r[2],d.daily_price[i],(gm[r[0]]||{})['กระจาย']||0,(gm[r[0]]||{})['ขนย้าย']||0])};}
-  if(key==='dc')return {title:'Top 10 DC ตามลิตร',head:['DC','กลุ่ม','ลิตร','บาท','รถ (คัน)'],rows:['กระจาย','ขนย้าย'].filter(g=>!GRP||g===GRP).flatMap(g=>topDCs(g,10).map(r=>[dcName(r[0]),r[1],r[2],r[3],r[4]]))};
+  if(key==='dc')return {title:'Top 10 DC ตามลิตร',head:['DC','กลุ่ม','ลิตร','บาท','รถ (คัน)'],rows:['กระจาย','ขนย้าย','Lay','รถใช้งานบริษัท'].filter(inGrp).flatMap(g=>topDCs(g,10).map(r=>[dcName(r[0]),r[1],r[2],r[3],r[4]]))};
   if(key==='plates')return {title:'Top 10 ทะเบียนตามลิตร',head:['ทะเบียน','กลุ่ม','เจ้าของ','DC','ลิตร','%PA'],rows:[['top_gk_own','กระจาย','ผปก'],['top_gk_co','กระจาย','บริษัท'],['top_kn_own','ขนย้าย','ผปก'],['top_kn_co','ขนย้าย','บริษัท']].filter(x=>!GRP||x[1]===GRP).flatMap(([k,g,o])=>(d[k]||[]).map(r=>[r[0],g,o,dcName(r[3]),r[1],r[2]]))};
   if(key==='alert'){const f=r=>[r[0],r[1],dcName(r[2]),r[3],r[4],r[5],r[6]];return {title:`รถเกิน PA ${d.over_pa.length} คัน · ใกล้เกิน ${d.near_pa.length} คัน`,head:['ทะเบียน','กลุ่ม','DC','เจ้าของ','ลิตร','PA ลิตร','%PA','สถานะ'],rows:[...d.over_pa.map(r=>[...f(r),'เกิน PA']),...d.near_pa.map(r=>[...f(r),'ใกล้เกิน'])]};}
   if(key.startsWith('bw_')){const m=key.slice(3),lab=bwLabel(m);

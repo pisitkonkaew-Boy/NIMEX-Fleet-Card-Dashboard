@@ -229,7 +229,7 @@ function idleList(){
   const months=curMonths(),ms=new Set(months),used=new Set(),last={};
   ALL_ROWS.forEach(r=>{if(!r.car)return;if(ms.has(monthKey(r.date)))used.add(r.car.key);if(!last[r.car.key]||dkey(r.date)>dkey(last[r.car.key]))last[r.car.key]=r.date;});
   const now=new Date();
-  return VEH_LIST.filter(c=>!used.has(c.key)&&(!GRP||c.group===GRP)&&months.some(mk=>activeIn(c,mk))).map(c=>{
+  return VEH_LIST.filter(c=>!used.has(c.key)&&inGrp(c.group)&&months.some(mk=>activeIn(c,mk))).map(c=>{
     const x=carPA(c,months),ld=last[c.key]||'';let days=null;
     if(ld){const [d,m,y]=ld.split('/').map(Number);days=Math.floor((now-new Date(y-543,m-1,d))/864e5);}
     return{car:c,pa:x?x.l:0,last:ld,days};}).sort((a,b)=>(b.days??1e9)-(a.days??1e9)||b.pa-a.pa);

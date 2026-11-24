@@ -75,13 +75,18 @@ function populateMonthSelect(){
     sel.value = months.includes(curMk) ? curMk : (months[months.length-1]||'');
   }
 }
-let GRP='';        // กลุ่มรถจากปุ่มทองบนแถบบน ('' = ทั้งหมด)
+let GRP='';        // ป้ายกลุ่มที่เลือก ('' = ทั้งหมด) — ใช้ inGrp(g) ตรวจว่ากลุ่มอยู่ในตัวกรองไหม
+// แท็บบน: ทั้งหมด / รถระบบ (กระจาย, ขนย้าย) / รถใช้งานและคลัง (รถใช้งานบริษัท, Lay) → ปุ่มย่อยรายกลุ่ม
+const MAIN_GROUPS={sys:{label:'รถระบบ',subs:['กระจาย','ขนย้าย']},ops:{label:'รถใช้งานและคลัง',subs:['รถใช้งานบริษัท','Lay']}};
+let GMAIN='',GSUB='';
+function inGrp(g){if(GSUB)return g===GSUB;if(GMAIN)return MAIN_GROUPS[GMAIN].subs.includes(g);return true;}
+function grpLabel(){return GSUB||(GMAIN?MAIN_GROUPS[GMAIN].label:'');}
 let CUR_ROWS=[];  // แถวข้อมูลหลังกรองเดือน + กลุ่ม (ใช้นับรถไม่ซ้ำ และดูรายวัน)
 function applyMonthFilter(){
   const sel=document.getElementById('f-month');
   const mk=sel?sel.value:'';
   let rows= mk ? ALL_ROWS.filter(r=>monthKey(r.date)===mk) : ALL_ROWS;
-  if(GRP) rows=rows.filter(r=>r.group===GRP);
+  if(GRP) rows=rows.filter(r=>inGrp(r.group));
   CUR_ROWS=rows;
   syncGroupUI();
   if(!rows.length){ showEmpty(); return; }
@@ -188,8 +193,8 @@ function render(d){
   },120);
 
   // Group breakdown
-  const cols = ['var(--s1)','var(--s2)'];
-  document.getElementById('grp-break').innerHTML = d.by_group.map(([g,l],i)=>{
+  const cols = ['var(--s1)','var(--s2)','var(--s3)','var(--s4)'];
+  document.getElementById('grp-break').innerHTML = d.by_group.sort((a,b)=>b[1]-a[1]).map(([g,l],i)=>{
     const p = (l/tL*100).toFixed(1);
     return `<div class="brow">
       <div class="brow-head"><span>${g}</span><span style="color:${cols[i]}">${fmt(l)} ล. <small style="color:var(--muted)">(${p}%)</small></span></div>
@@ -207,7 +212,8 @@ function render(d){
   }).join('');
 
   document.getElementById('dc-cnt').textContent = new Set((d.dc_summary||[]).map(r=>r[0])).size + ' DC · '+(d.dc_summary||[]).length+' รายการ (DC×กลุ่ม)';
-  document.querySelectorAll('#tab-overview [data-grp]').forEach(el=>{el.hidden=!!GRP&&el.dataset.grp!==GRP;});
+  document.querySelectorAll('#tab-overview [data-grp]').forEach(el=>{el.hidden=!inGrp(el.dataset.grp);});
+  if(typeof renderZoneCard==='function') renderZoneCard();
 
   renderCharts();
   renderTopDC();
@@ -382,12 +388,15 @@ function renderDCTab(){
   const d=D; if(!d.dc_summary) return;
   const grp=document.getElementById('f-dcgrp').value;
   const q=(document.getElementById('f-dcsearch').value||'').toLowerCase();
+  fillZoneSelect();
+  const zsel=document.getElementById('f-dczone').value, PAm=dcPA(d,grp);
 
   // Aggregate
   const map={};
   d.dc_summary.forEach(r=>{
     if(grp && r[1]!==grp) return;
     if(q && !r[0].toLowerCase().includes(q)) return;
+    if(zsel && zoneOf(dcCodeOf(r[0]))!==zsel) return;
     if(!map[r[0]]) map[r[0]]={dc:r[0],l:0,b:0,v:0};
     map[r[0]].l+=r[2]; map[r[0]].b+=r[3]; map[r[0]].v+=r[4];
   });
@@ -401,10 +410,13 @@ function renderDCTab(){
     return `<tr class="clickrow" onclick="showDCVeh('${r.dc}')">
       <td style="color:var(--muted)">${i+1}</td>
       <td class="pl"><strong>${r.dc.replace(/^\d+\s+/,'')}</strong><small>${r.dc.match(/^\d+/)?.[0]||''}</small></td>
-      <td><span class="bdg b-gray" style="font-size:10px">${grp||'รวม'}</span></td>
+      <td style="font-size:12px">${escH(zoneOf(dcCodeOf(r.dc)))}</td>
+      <td><span class="bdg b-gray" style="font-size:10px">${grp||GRP||'รวม'}</span></td>
       <td class="r"><strong>${fmt(r.l)}</strong></td>
       <td class="r">฿${fmt(r.b)}</td>
-      <td class="r">${r.v}</td>
+      <td class="r">${PAm[r.dc]&&PAm[r.dc].paL>0?fmt(PAm[r.dc].paL):'—'}</td>
+      <td>${PAm[r.dc]&&PAm[r.dc].paL>0?pchip(r.l/PAm[r.dc].paL*100):'—'}</td>
+      <td class="r">${r.v}${PAm[r.dc]?'/'+PAm[r.dc].act:''}</td>
       <td><div class="bi"><div class="bm"><div class="bf" style="width:${p}%;background:var(--s1)"></div></div><span style="font-size:12px;min-width:38px">${p}%</span></div></td>
       <td><span class="bdg b-blue">›</span></td>
     </tr>`;
@@ -419,6 +431,8 @@ function renderVeh(){
   const dc =document.getElementById('f-vdc').value;
   const minP=parseFloat(document.getElementById('f-vpct').value)||0;
   const q=(document.getElementById('f-vpl').value||'').toLowerCase();
+  fillZoneSelect();
+  const vz=document.getElementById('f-vzone').value, PZ=plateZone(d);
 
   // Populate DC select
   const sel=document.getElementById('f-vdc');
@@ -432,6 +446,7 @@ function renderVeh(){
   if(grp)  rows=rows.filter(r=>r[1]===grp);
   if(own)  rows=rows.filter(r=>r[3]===own);
   if(dc)   rows=rows.filter(r=>r[2]===dc);
+  if(vz)   rows=rows.filter(r=>PZ[r[0]]===vz);
   if(minP>=100) rows=rows.filter(r=>r[6]>100);
   else if(minP>0) rows=rows.filter(r=>r[6]>=minP);
   if(q) rows=rows.filter(r=>r[0].toLowerCase().includes(q));
@@ -442,6 +457,7 @@ function renderVeh(){
       <td><strong>${r[0]}</strong></td>
       <td><span class="bdg ${r[1]==='กระจาย'?'b-blue':'b-purple'}">${r[1]}</span></td>
       <td style="font-size:11px">${r[2].replace(/^\d+\s+/,'')}</td>
+      <td style="font-size:11px">${escH(PZ[r[0]]||'')}</td>
       <td><span class="bdg ${r[3]==='ผปก'?'b-green':'b-gray'}">${r[3]}</span></td>
       <td class="r">${fmt(r[4])}</td>
       <td class="r">${r[5]>0?fmt(r[5]):'—'}</td>
@@ -679,7 +695,7 @@ function computeFromRows(rows){
     by_group,by_owner,by_vtype,daily,daily_price,daily_grp,dc_summary,
     top_gk_own:t10('กระจาย','ผปก'),top_gk_co:t10('กระจาย','บริษัท'),
     top_kn_own:t10('ขนย้าย','ผปก'),top_kn_co:t10('ขนย้าย','บริษัท'),
-    all_vehicles,over_pa,near_pa,idle:vs.filter(v=>v.idle)};
+    all_vehicles,over_pa,near_pa,idle:vs.filter(v=>v.idle),vlist:vs};
 }
 function round1(n){return Math.round(n*10)/10}
 
@@ -746,18 +762,22 @@ function expDC(){
   const d=D; if(!d.dc_summary) return;
   const grp=document.getElementById('f-dcgrp').value;
   const q=(document.getElementById('f-dcsearch').value||'').toLowerCase();
+  const zsel=(document.getElementById('f-dczone')||{}).value||'';
   // aggregate same as renderDCTab
   const map={};
   d.dc_summary.forEach(r=>{
     if(grp && r[1]!==grp) return;
     if(q && !r[0].toLowerCase().includes(q)) return;
+    if(zsel && zoneOf(dcCodeOf(r[0]))!==zsel) return;
     if(!map[r[0]]) map[r[0]]={dc:r[0],l:0,b:0,v:0};
     map[r[0]].l+=r[2]; map[r[0]].b+=r[3]; map[r[0]].v+=r[4];
   });
-  const pset=dcPlateSets(grp);
-  const rows=Object.values(map).sort((a,b)=>b.l-a.l).map(r=>[r.dc,grp||'รวม',r.l,r.b,pset[r.dc]?pset[r.dc].size:0]);
+  const pset=dcPlateSets(grp),PAm=dcPA(d,grp);
+  const rows=Object.values(map).sort((a,b)=>b.l-a.l).map(r=>{const pa=PAm[r.dc]||{paL:0,act:0};return [r.dc,zoneOf(dcCodeOf(r.dc)),grp||GRP||'รวม',r.l,r.b,Math.round(pa.paL),pa.paL>0?round1(r.l/pa.paL*100):'',pset[r.dc]?pset[r.dc].size:0,pa.act];});
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['DC','กลุ่ม','ลิตร','บาท','รถ'],...rows]),'DC');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['DC','ภาค','กลุ่ม','ลิตร','บาท','PA ลิตร','%PA ลิตร','รถที่เติม','รถใช้งานทั้งหมด'],...rows]),'DC');
+  const zr=zoneAgg(d,grp?v=>v.group===grp:null).map(o=>[o.zone,Math.round(o.l),Math.round(o.b),Math.round(o.paL),o.paL>0?round1(o.l/o.paL*100):'',o.paB>0?round1(o.b/o.paB*100):'',o.n,o.act,o.dcs.size]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['ภาค','ลิตร','บาท','PA ลิตร','%PA ลิตร','%PA บาท','รถที่เติม','รถใช้งานทั้งหมด','DC'],...zr]),'ภาค');
   const notice=document.getElementById('dc-exp-notice');
   if(notice) notice.textContent = (grp||q)?'(ตาม filter)':'';
   XLSX.writeFile(wb,'NIMEX-Fleet-DC-'+fileStamp()+(grp?'-'+GRP_EN[grp]:'')+'.xlsx');
@@ -1050,7 +1070,7 @@ renderDCTab=function(){
 // ════════ KEYBOARD HINT in topbar ════════
 // เริ่มทำงาน: boot() ใน admin (โหลดจาก Google Sheet)
 // ════════ NIMEX LAYOUT HELPERS (ไม่ยุ่งกับสูตรคำนวณ) ════════
-const GRP_EN={'กระจาย':'Distribution','ขนย้าย':'Transfer'};
+const GRP_EN={'กระจาย':'Distribution','ขนย้าย':'Transfer','Lay':'Lay','รถใช้งานบริษัท':'CompanyUse','รถระบบ':'SystemFleet','รถใช้งานและคลัง':'CompanyUse-Warehouse'};
 const OWN_EN={'ผปก':'Owner','บริษัท':'Company'};
 function curMonth(){const s=document.getElementById('f-month');return s?s.value:'';}
 function fileStamp(){const mk=curMonth();const m=mk?mk.split('/'):null;return (m?(m[1]+'-'+m[0]):'AllMonths')+(GRP?'-'+GRP_EN[GRP]:'');}
@@ -1061,12 +1081,19 @@ function enterDash(){const c=document.getElementById('cover');if(c&&!c.classList
 
 // ปุ่มกลุ่มสีทอง: กรองทั้งหน้า
 let _grpForced=false;
-function setGroup(g){GRP=g;applyMonthFilter();}
+function setGroup(g){ // '' = ทั้งหมด หรือชื่อกลุ่ม (กระจาย/ขนย้าย/Lay/รถใช้งานบริษัท)
+  if(!g){GMAIN='';GSUB='';}else{GMAIN=Object.keys(MAIN_GROUPS).find(k=>MAIN_GROUPS[k].subs.includes(g))||'';GSUB=GMAIN?g:'';}
+  GRP=grpLabel();applyMonthFilter();}
+function setMain(m){GMAIN=m;GSUB='';GRP=grpLabel();applyMonthFilter();}
+function setSub(s){GSUB=s;GRP=grpLabel();applyMonthFilter();}
 function syncGroupUI(){
-  document.querySelectorAll('#seg-group button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.grp===GRP)));
+  document.querySelectorAll('#seg-group button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.main===GMAIN)));
+  const sub=document.getElementById('seg-sub');
+  if(sub){sub.hidden=!GMAIN;if(GMAIN)sub.innerHTML=`<button aria-pressed="${!GSUB}" onclick="setSub('')">รวม</button>`+MAIN_GROUPS[GMAIN].subs.map(g=>`<button aria-pressed="${GSUB===g}" onclick="setSub('${g}')">${g}</button>`).join('');}
   ['f-dcgrp','f-vgrp'].forEach(id=>{const s=document.getElementById(id);if(!s)return;
-    if(GRP){s.value=GRP;s.disabled=true;}else{if(_grpForced)s.value='';s.disabled=false;}});
-  _grpForced=!!GRP;
+    [...s.options].forEach(o=>{o.hidden=!!o.value&&!inGrp(o.value);});
+    if(GSUB){s.value=GSUB;s.disabled=true;}else{if(_grpForced||(s.value&&!inGrp(s.value)))s.value='';s.disabled=false;}});
+  _grpForced=!!GSUB;
 }
 function clearMonth(){const s=document.getElementById('f-month');if(s){s.value='';applyMonthFilter();}}
 function renderChips(){
@@ -1074,6 +1101,7 @@ function renderChips(){
   const mk=curMonth();let h='';
   if(mk) h+=`<span class="chip">เดือน ${escH(monthLabel(mk))}<button onclick="clearMonth()" aria-label="ล้างตัวกรองเดือน">✕</button></span>`;
   if(GRP) h+=`<span class="chip">กลุ่ม ${escH(GRP)}<button onclick="setGroup('')" aria-label="ล้างตัวกรองกลุ่ม">✕</button></span>`;
+  const z=document.getElementById('f-dczone');if(z&&z.value) h+=`<span class="chip">ภาค ${escH(z.value)} (หน้า DC/รถ)<button onclick="setZone('')" aria-label="ล้างตัวกรองภาค">✕</button></span>`;
   x.innerHTML=h;
 }
 function showEmpty(){
@@ -1121,7 +1149,7 @@ function showDayModal(date){
 }
 
 // ตาราง: กดหัวเพื่อเรียง / แถวที่เลือกมีแถบทอง
-function cellVal(td){const t=(td?td.textContent:'').trim();const n=t.replace(/[฿,%+\s]|ล\.|คัน/g,'');return (n!==''&&!isNaN(n))?parseFloat(n):t;}
+function cellVal(td){const t=(td?td.textContent:'').trim().split('/')[0].trim();const n=t.replace(/[฿,%+\s]|ล\.|คัน/g,'');return (n!==''&&!isNaN(n))?parseFloat(n):t;}
 document.addEventListener('click',e=>{
   const th=e.target.closest('.dt thead th');
   if(th){

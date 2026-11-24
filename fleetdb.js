@@ -92,7 +92,7 @@ function fleetPA(vMap,rows){
   });
   VEH_LIST.forEach(car=>{
     if(seen.has(car.key))return;
-    if(typeof GRP!=='undefined'&&GRP&&car.group!==GRP)return;
+    if(typeof inGrp==='function'&&!inGrp(car.group))return;
     const x=carPA(car,months);if(!x)return;
     vMap[car.plate]={plate:car.plate,group:car.group,dc:car.dcLabel,owner:car.owner,vtype:car.vtype,zone:car.zone,paBaht:x.b,paLiter:x.l,l:0,b:0,idle:true};
   });
@@ -313,3 +313,33 @@ function exportUnmatched(){
 function idleRows(d){return ((d&&d.idle)||[]).map(v=>({plate:v.plate,group:v.group,dc:v.dc,owner:v.owner,vtype:v.vtype,zone:v.zone,liter:0,baht:0,price:0,idle:true}));}
 
 function fleetToast(msg){if(!msg)return;let t=document.getElementById('fleet-toast');if(!t){t=document.createElement('div');t.id='fleet-toast';t.className='fleet-toast';document.body.appendChild(t);}t.textContent=msg;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),3500);}
+
+// ════════ มิติภาค (ขั้น 3) ════════
+function vZone(v){return v.zone||zoneOf(dcCodeOf(v.dc));}
+function zoneAgg(d,pred){
+  const m={};((d&&d.vlist)||[]).forEach(v=>{if(pred&&!pred(v))return;const z=vZone(v);const o=m[z]||(m[z]={zone:z,l:0,b:0,paL:0,paB:0,n:0,act:0,dcs:new Set()});
+    o.l+=v.l;o.b+=v.b;o.paL+=v.paLiter||0;o.paB+=v.paBaht||0;o.act++;if(v.l>0){o.n++;o.dcs.add(v.dc);}});
+  return Object.values(m).sort((a,b)=>b.l-a.l);
+}
+function renderZoneCard(){
+  const tb=document.getElementById('zone-tbody');if(!tb||!D)return;
+  const L=zoneAgg(D),tl=L.reduce((s,o)=>s+o.l,0);
+  tb.innerHTML=L.map((o,i)=>{const p=pct(o.l,o.paL),sh=tl>0?o.l/tl*100:0;return `<tr class="clickrow" onclick="setZone('${escH(o.zone)}');goTab('dc')">
+    <td style="color:var(--muted)">${i+1}</td><td><strong>${escH(o.zone)}</strong></td><td class="r"><strong>${fmt(o.l)}</strong></td><td class="r">฿${fmt(o.b)}</td>
+    <td class="r">${o.paL>0?fmt(o.paL):'—'}</td><td>${o.paL>0?pchip(p):'—'}</td><td class="r">${o.paB>0?pct(o.b,o.paB).toFixed(1)+'%':'—'}</td>
+    <td class="r">${fmt(o.n)}/${fmt(o.act)}</td><td class="r">${o.dcs.size}</td>
+    <td><div class="bi"><div class="bm"><div class="bf" style="width:${sh.toFixed(1)}%;background:var(--s1)"></div></div><span style="font-size:12px;min-width:38px">${sh.toFixed(1)}%</span></div></td></tr>`;}).join('')||'<tr><td colspan="10" style="text-align:center">—</td></tr>';
+}
+function setZone(z){
+  const s=document.getElementById('f-dczone');if(s){fillZoneSelect();s.value=z;}
+  const v=document.getElementById('f-vzone');if(v){fillZoneSelect();v.value=z;}
+  if(D){renderDCTab();renderVeh();}renderChips();
+}
+function fillZoneSelect(){
+  const zs=[...new Set(((D&&D.vlist)||[]).map(vZone))].sort((a,b)=>a.localeCompare(b,'th'));
+  ['f-dczone','f-vzone'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const cur=s.value;
+    s.innerHTML='<option value="">ทุกภาค</option>'+zs.map(z=>`<option${z===cur?' selected':''}>${escH(z)}</option>`).join('');});
+}
+// PA ราย DC (รถทุกคันที่ยังใช้งานใน DC นั้น ตามตัวกรองกลุ่ม)
+function dcPA(d,grp){const m={};((d&&d.vlist)||[]).forEach(v=>{if(grp&&v.group!==grp)return;const o=m[v.dc]||(m[v.dc]={paL:0,paB:0,act:0,zone:vZone(v)});o.paL+=v.paLiter||0;o.paB+=v.paBaht||0;o.act++;});return m;}
+function plateZone(d){const m={};((d&&d.vlist)||[]).forEach(v=>{m[v.plate]=vZone(v);});return m;}
