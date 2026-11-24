@@ -90,6 +90,7 @@ function applyMonthFilter(){
   renderDCTab(); renderVeh(); renderTrend(); renderAlert();
   if(typeof renderAnalysis==='function') renderAnalysis();
   renderChips(); syncBadges();
+  if(typeof renderIdle==='function'&&document.getElementById('tab-idle')?.classList.contains('on')) renderIdle();
 }
 
 // ════════ UTILS ════════
@@ -134,7 +135,9 @@ const TAB_INFO={
   trend:['เทรนด์รายวัน','การใช้น้ำมันและราคารายวัน'],
   alert:['แจ้งเตือน','รถที่เกินหรือใกล้เกิน PA'],
   analysis:['วิเคราะห์แนวโน้ม','คาดการณ์การใช้เทียบ PA'],
-  fleetdb:['ฐานข้อมูลรถ','รถ วงเงิน PA และตาราง DC → ภาค']
+  fleetdb:['ฐานข้อมูลรถ','รถ วงเงิน PA และตาราง DC → ภาค'],
+  fleetchk:['ตรวจข้อมูลรถ','ทะเบียนไม่อยู่ในฐาน และรหัสรถไม่ตรง'],
+  idle:['รถไม่มีการใช้งานน้ำมัน','รถที่ยังใช้งานแต่ไม่ได้เติมในช่วงที่เลือก']
 };
 function goTab(id){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
@@ -143,6 +146,8 @@ function goTab(id){
   const ti=TAB_INFO[id]; if(ti){document.getElementById('page-eyebrow').textContent=ti[0];document.getElementById('page-title').textContent=ti[1];}
   window.scrollTo({top:0});
   if(id==='fleetdb') renderFleetDB();
+  if(id==='fleetchk') renderFleetChk();
+  if(id==='idle') renderIdle();
   if(!D) return;
   if(id==='dc') renderDCTab();
   if(id==='vehicles') renderVeh();
@@ -562,10 +567,9 @@ function showAllPlates(grp,own){
 function doDrop(e){
   e.preventDefault();
   document.getElementById('uzone').classList.remove('drag');
-  const f=e.dataTransfer.files[0];
-  if(f) processFile(f);
+  if(e.dataTransfer.files.length) processFiles(e.dataTransfer.files);
 }
-function onFile(e){const f=e.target.files[0];if(f) processFile(f);}
+function onFile(e){if(e.target.files.length) processFiles(e.target.files);}
 
 // เจ้าของรถ: "รถบริษัท" กับ "บริษัท" นับเป็นกลุ่มเดียวกัน (ตัดคำว่า รถ ที่นำหน้า)
 function normOwner(s){return normText(s).replace(/^รถ\s*/,'');}
@@ -1153,15 +1157,17 @@ async function loadData(fresh){
   const url=window.FLEET_API+(fresh?(window.FLEET_API.includes('?')?'&':'?')+'t='+Date.now():'');
   const j=await (await fetch(url,{cache:fresh?'no-store':'default'})).json();
   if(!j||!j.ok) throw new Error('bad data');
-  const p=parseRaw([j.headers,...j.rows]);              // กติกาเดียวกับการเติมไฟล์ (#N/A, ลิตร ≤ 0)
-  const nParsed=p.parsed.length;
+  window.SHEET_SETTINGS=j.settings||null;
+  loadFuelExtras(j);                                    // ชีต น้ำมัน (ไฟล์ดิบ Fleet Card) — fuel.js
+  const p=FUEL_MODE?{parsed:parseFuelRows(j.fuel.rows),naDropped:0}:parseRaw([j.headers,...j.rows]);  // ชีต1 เดิม: กติกาเดียวกับการเติมไฟล์ (#N/A, ลิตร ≤ 0)
+  const nParsed=p.parsed.length, nRaw=FUEL_MODE?j.fuel.rows.length:j.rows.length;
   p.parsed=applyFleetDB(p.parsed,j);                   // ข้อมูลรถจากฐานรถ (fleetdb.js)
   const dates=[...new Set(p.parsed.map(r=>r.date))].sort(dateCmp);
   STORE={'__sheet__':{rows:p.parsed,filename:'Google Sheet',range:(dates[0]||'')+' – '+(dates[dates.length-1]||''),dates}};
-  SHEET_INFO={raw:j.rows.length,kept:p.parsed.length,na:p.naDropped,skip:j.rows.length-nParsed-p.naDropped,updated:j.updated,unmatched:UNMATCHED.length};
-  window.SHEET_SETTINGS=j.settings||null;
+  SHEET_INFO={raw:nRaw,kept:p.parsed.length,na:p.naDropped,skip:nRaw-nParsed-p.naDropped,updated:j.updated,unmatched:UNMATCHED.length,excluded:EXCLUDED.length,fuel:FUEL_MODE};
   if(typeof onSheetSettings==='function') onSheetSettings(window.SHEET_SETTINGS);
   rebuildAllRows();
+  if(typeof syncFleetBadge==='function') syncFleetBadge();
   if(!ALL_ROWS.length){ D=null; bootMsg(ADMIN?'<h2>ยังไม่มีข้อมูลใน Google Sheet</h2><p class="note">ไปที่หน้า ตั้งค่า แล้วเติมไฟล์ Excel เพื่อเริ่มต้น</p>':'<h2>ยังไม่มีข้อมูล</h2>'); if(ADMIN){document.getElementById('root').classList.remove('loading');document.getElementById('boot').hidden=false;goTab('settings');} renderChecks(); return; }
   document.getElementById('boot').hidden=true;
   document.getElementById('root').classList.remove('loading');
@@ -1228,7 +1234,7 @@ function processFile(file){
   };
   reader.readAsArrayBuffer(file);
 }
-function cancelPlan(){PLAN=null;document.getElementById('set-plan').innerHTML='';document.getElementById('ustatus').textContent='';document.getElementById('finput').value='';}
+function cancelPlan(){PLAN=null;FPLAN=null;document.getElementById('set-plan').innerHTML='';document.getElementById('ustatus').textContent='';document.getElementById('finput').value='';}
 async function commitPlan(){
   if(!PLAN) return;
   const btn=document.getElementById('btn-commit'),st=document.getElementById('ustatus');btn.disabled=true;
@@ -1247,7 +1253,7 @@ async function commitPlan(){
 function renderChecks(){
   const f=document.getElementById('flist');if(!f||!SHEET_INFO)return;
   const I=SHEET_INFO;
-  f.innerHTML=`ใน Google Sheet ${fmt(I.raw)} แถว · ใช้ได้ ${fmt(I.kept)} แถว`+(I.na?` · <span class="badt">ตัด #N/A ${fmt(I.na)} แถว</span>`:'')+(I.skip?` · <span class="badt">ข้ามแถวไม่มีทะเบียนหรือลิตร ≤ 0 อีก ${fmt(I.skip)} แถว</span>`:'')+(I.unmatched?` · <span class="badt">ทะเบียนไม่อยู่ในฐานรถ ${fmt(I.unmatched)} แถว · ${fmt(UNMATCHED.reduce((s,r)=>s+r.liter,0))} ลิตร · ${fmt(unmatchedSummary().length)} ทะเบียน (ไม่ถูกนับ)</span> <button class="btn alt btn-sm" onclick="exportUnmatched()">ดาวน์โหลดรายการ</button>`:'')+(I.updated?` · โหลดเมื่อ ${new Date(I.updated).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}`:'');
+  f.innerHTML=`ใน Google Sheet ${fmt(I.raw)} แถว · ใช้ได้ ${fmt(I.kept)} แถว`+(I.na?` · <span class="badt">ตัด #N/A ${fmt(I.na)} แถว</span>`:'')+(I.skip?` · <span class="badt">ข้ามแถวไม่มีทะเบียนหรือลิตร ≤ 0 อีก ${fmt(I.skip)} แถว</span>`:'')+(I.unmatched?` · <span class="badt">ทะเบียนไม่อยู่ในฐานรถ ${fmt(I.unmatched)} แถว · ${fmt(UNMATCHED.reduce((s,r)=>s+r.liter,0))} ลิตร · ${fmt(unmatchedSummary().length)} ทะเบียน (ไม่ถูกนับ)</span> <button class="btn alt btn-sm" onclick="goTab('fleetchk')">ไปหน้า ตรวจข้อมูลรถ</button>`:'')+(I.excluded?` · อยู่ในรายการไม่นับ ${fmt(I.excluded)} แถว`:'')+(I.fuel?' · ข้อมูลจากไฟล์ดิบ Fleet Card (ชีต น้ำมัน)':' · ข้อมูลเดิม (ชีต1)')+(I.updated?` · โหลดเมื่อ ${new Date(I.updated).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}`:'');
   const m={};ALL_ROWS.forEach(r=>{const k=monthKey(r.date);if(!m[k])m[k]={n:0,d:new Set(),l:0,b:0,p:new Set()};const o=m[k];o.n++;o.d.add(r.date);o.l+=r.liter;o.b+=r.baht;o.p.add(r.plate);});
   const ks=Object.keys(m).sort((a,b)=>{const x=a.split('/'),y=b.split('/');return (+x[1]*100+ +x[0])-(+y[1]*100+ +y[0]);});
   document.getElementById('chk-tbody').innerHTML=ks.map(k=>{const o=m[k];return `<tr><td>${escH(monthLabel(k))}</td><td class="r">${fmt(o.n)}</td><td class="r">${o.d.size}</td><td class="r">${fmt(o.l)}</td><td class="r">฿${fmt(o.b)}</td><td class="r">${fmt(o.p.size)}</td></tr>`;}).join('')||'<tr><td colspan="6" style="text-align:center">ยังไม่มีข้อมูล</td></tr>';

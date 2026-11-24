@@ -36,13 +36,22 @@ function buildFleet(j){
   VEH_LIST=Object.values(VEH);
   FLEET_ON=VEH_LIST.length>0;
 }
-// เรียกจาก loadData หลัง parseRaw: เติมข้อมูลรถจากฐาน แยกแถวที่ไม่อยู่ในฐาน
+// เรียกจาก loadData: เติมข้อมูลรถจากฐาน แยกแถวที่ไม่อยู่ในฐาน
+// กติกาจับคู่ (ขั้น 2): ทะเบียน (ผ่านตาราง alias ที่ผู้ดูแลผูกไว้) → ถ้ารหัสรถล่าสุดไม่ตรงฐาน นับตามข้อมูลเดิมในฐานไปก่อน + แจ้งเตือนให้ยืนยัน
+// ทะเบียนไม่อยู่ในฐาน → ไม่นับ แจ้งเตือนให้เพิ่ม / ผูกกับทะเบียนที่มี / ไม่นับ
+let EXCLUDED=[], FCFG={alias:{},exclude:{},ignoreCode:{}}, VEH_BY_CODE={};
+function fleetCfg(){const s=(window.SHEET_SETTINGS&&window.SHEET_SETTINGS.fleet)||{};FCFG={alias:s.alias||{},exclude:s.exclude||{},ignoreCode:s.ignoreCode||{}};return FCFG;}
+function resolveKey(plate){const k=plateKey(plate);return FCFG.alias[k]||k;}
 function applyFleetDB(parsed,j){
-  buildFleet(j);UNMATCHED=[];
+  buildFleet(j);fleetCfg();UNMATCHED=[];EXCLUDED=[];VEH_BY_CODE={};
+  VEH_LIST.forEach(c=>{if(c.code)VEH_BY_CODE[c.code]=c;});
   if(!FLEET_ON){parsed.forEach(r=>{r.zone=zoneOf(dcCodeOf(r.dc));});buildPrices(parsed);return parsed;}
   const out=[];
   parsed.forEach(r=>{
-    const car=VEH[plateKey(r.plate)];
+    r.rawPlate=r.rawPlate||r.plate;
+    const k=resolveKey(r.plate);
+    if(FCFG.exclude[k]){EXCLUDED.push(r);return;}
+    const car=VEH[k];
     if(!car){UNMATCHED.push(r);return;}
     r.plate=car.plate;r.group=car.group;r.dc=car.dcLabel;r.vtype=car.vtype;r.owner=car.owner;r.zone=car.zone;r.car=car;
     out.push(r);
@@ -117,31 +126,33 @@ function renderFleetDB(){
 }
 function fdbFilter(k,v){FDB[k]=v;renderFleetDB();}
 
-// ฟอร์มเพิ่ม/แก้ไขรถ
-function openCar(key){
-  const c=key?VEH[key]:null;
+// ฟอร์มเพิ่ม/แก้ไขรถ · pre = ค่าที่กรอกไว้ให้ (จากหน้าแจ้งเตือน / รถไม่มีการใช้งาน)
+function openCar(key,pre){
+  const c0=key?VEH[key]:null, c=Object.assign({plate:'',code:'',group:'กระจาย',dc:'',vtype:'',ownerFull:OWNERS[2],paL:'',budget:'',start:'',end:'',note:''},c0||{},pre||{});
   const dcs=Object.values(ZONES).sort((a,b)=>a.code-b.code);
   const vts=[...new Set(VEH_LIST.map(x=>x.vtype).filter(Boolean))];
-  document.getElementById('m-car-title').textContent=c?'แก้ไขรถ '+c.plate:'เพิ่มรถ';
+  const E=v=>escH(v==null?'':v);
+  document.getElementById('m-car-title').textContent=c0?'แก้ไขรถ '+c0.plate:'เพิ่มรถ';
   document.getElementById('m-car-body').innerHTML=`
-    <input type="hidden" id="car-old" value="${c?escH(c.plate):''}">
+    <input type="hidden" id="car-old" value="${c0?E(c0.plate):''}">
+    ${pre&&pre._hint?`<p class="flog" style="text-align:left">${pre._hint}</p>`:''}
     <div class="g g2">
-      <div class="field"><label for="car-plate">ทะเบียน</label><input id="car-plate" value="${c?escH(c.plate):''}" placeholder="เช่น 3ฒข-1306"></div>
-      <div class="field"><label for="car-code">รหัสรถ</label><input id="car-code" value="${c?escH(c.code):''}" inputmode="numeric"></div>
-      <div class="field"><label for="car-group">กลุ่มรถ</label><select id="car-group" onchange="carBudgetUI()">${GROUPS.map(g=>`<option${c&&c.group===g?' selected':''}>${g}</option>`).join('')}</select></div>
-      <div class="field"><label for="car-dc">DC</label><select id="car-dc">${dcs.map(z=>`<option value="${escH(z.code)}"${c&&c.dc===z.code?' selected':''}>${escH(z.code+' '+z.name)} · ${escH(z.zone||'ไม่มีภาค')}</option>`).join('')}${c&&!ZONES[c.dc]?`<option value="${escH(c.dc)}" selected>${escH(c.dc)} (ไม่มีในตาราง DC)</option>`:''}</select></div>
-      <div class="field"><label for="car-vtype">ประเภทรถ</label><input id="car-vtype" list="car-vts" value="${c?escH(c.vtype):''}"><datalist id="car-vts">${vts.map(v=>`<option value="${escH(v)}">`).join('')}</datalist></div>
-      <div class="field"><label for="car-owner">เจ้าของ</label><select id="car-owner">${OWNERS.map(o=>`<option${c&&c.ownerFull===o?' selected':''}>${o}</option>`).join('')}</select></div>
-      <div class="field" id="f-pal"><label for="car-pal">PA ลิตร / เดือน</label><input id="car-pal" type="number" step="any" value="${c&&c.paL?c.paL:''}"></div>
-      <div class="field" id="f-bud"><label for="car-bud">วงเงินบาท / เดือน</label><input id="car-bud" type="number" step="any" value="${c&&c.budget?c.budget:''}"><small class="flog">ระบบแปลงเป็นลิตรด้วยราคาที่คันนี้เติมจริงแต่ละเดือน</small></div>
-      <div class="field"><label for="car-start">วันที่เริ่มใช้ (ว่าง = นับทุกเดือน)</label><input id="car-start" value="${c?escH(c.start):''}" placeholder="dd/mm/2569"></div>
-      <div class="field"><label for="car-end">วันที่เลิกใช้ (ว่าง = ยังใช้งาน)</label><input id="car-end" value="${c?escH(c.end):''}" placeholder="dd/mm/2569"></div>
+      <div class="field"><label for="car-plate">ทะเบียน</label><input id="car-plate" value="${E(c.plate)}" placeholder="เช่น 3ฒข-1306"></div>
+      <div class="field"><label for="car-code">รหัสรถ</label><input id="car-code" value="${E(c.code)}" inputmode="numeric"></div>
+      <div class="field"><label for="car-group">กลุ่มรถ</label><select id="car-group" onchange="carBudgetUI()">${GROUPS.map(g=>`<option${c.group===g?' selected':''}>${g}</option>`).join('')}</select></div>
+      <div class="field"><label for="car-dc">DC</label><select id="car-dc">${dcs.map(z=>`<option value="${E(z.code)}"${c.dc===z.code?' selected':''}>${E(z.code+' '+z.name)} · ${E(z.zone||'ไม่มีภาค')}</option>`).join('')}${c.dc&&!ZONES[c.dc]?`<option value="${E(c.dc)}" selected>${E(c.dc)} (ไม่มีในตาราง DC)</option>`:''}</select></div>
+      <div class="field"><label for="car-vtype">ประเภทรถ</label><input id="car-vtype" list="car-vts" value="${E(c.vtype)}"><datalist id="car-vts">${vts.map(v=>`<option value="${E(v)}">`).join('')}</datalist></div>
+      <div class="field"><label for="car-owner">เจ้าของ</label><select id="car-owner">${OWNERS.map(o=>`<option${c.ownerFull===o?' selected':''}>${o}</option>`).join('')}</select></div>
+      <div class="field" id="f-pal"><label for="car-pal">PA ลิตร / เดือน</label><input id="car-pal" type="number" step="any" value="${c.paL?E(c.paL):''}"></div>
+      <div class="field" id="f-bud"><label for="car-bud">วงเงินบาท / เดือน</label><input id="car-bud" type="number" step="any" value="${c.budget?E(c.budget):''}"><small class="flog">ระบบแปลงเป็นลิตรด้วยราคาที่คันนี้เติมจริงแต่ละเดือน</small></div>
+      <div class="field"><label for="car-start">วันที่เริ่มใช้ (ว่าง = นับทุกเดือน)</label><input id="car-start" value="${E(c.start)}" placeholder="dd/mm/2569"></div>
+      <div class="field"><label for="car-end">วันที่เลิกใช้ (ว่าง = ยังใช้งาน)</label><input id="car-end" value="${E(c.end)}" placeholder="dd/mm/2569"></div>
     </div>
-    <div class="field"><label for="car-note">หมายเหตุ</label><input id="car-note" value="${c?escH(c.note):''}"></div>
-    ${c&&c.edited?`<p class="flog">แก้ไขล่าสุด ${escH(c.edited)}</p>`:''}
+    <div class="field"><label for="car-note">หมายเหตุ</label><input id="car-note" value="${E(c.note)}"></div>
+    ${c0&&c0.edited?`<p class="flog">แก้ไขล่าสุด ${E(c0.edited)}</p>`:''}
     <p class="msg badt" id="car-msg" role="status"></p>
     <div class="btns"><button class="btn goldb" id="car-save" onclick="saveCar()">บันทึกลง Google Sheet</button>
-    ${c?`<button class="btn alt" onclick="endCarToday()">ตั้งเลิกใช้วันนี้</button><button class="btn alt" style="color:var(--bad)" onclick="deleteCar()">ลบออกจากฐาน</button>`:''}</div>`;
+    ${c0?`<button class="btn alt" onclick="endCarToday()">ตั้งเลิกใช้วันนี้</button><button class="btn alt" style="color:var(--bad)" onclick="deleteCar()">ลบออกจากฐาน</button>`:''}</div>`;
   carBudgetUI();openM('m-car');
 }
 function carBudgetUI(){const g=document.getElementById('car-group').value;const bud=g==='รถใช้งานบริษัท';document.getElementById('f-bud').style.display=bud?'':'none';document.getElementById('f-pal').style.display=bud?'none':'';}
@@ -167,7 +178,7 @@ async function deleteCar(){
 }
 async function fdbReload(msg){
   const st=document.getElementById('fdb-msg');if(st)st.textContent='⏳ กำลังโหลดข้อมูลใหม่…';
-  await loadData(true);renderFleetDB();if(st)st.textContent=msg||'';
+  await loadData(true);renderFleetDB();if(typeof renderFleetChk==='function'){renderFleetChk();renderIdle();}if(st)st.textContent=msg||'';fleetToast(msg);
 }
 
 // ════════ นำเข้า Excel (ฐานรถ และ/หรือ ตาราง DC → ภาค) ════════
@@ -300,3 +311,5 @@ function exportUnmatched(){
 }
 // รถที่ยังใช้งานแต่ไม่ได้เติมในช่วงนั้น → แถวหลอก (ลิตร 0) ให้รวม PA ตามมิติได้ (share.js aggBy)
 function idleRows(d){return ((d&&d.idle)||[]).map(v=>({plate:v.plate,group:v.group,dc:v.dc,owner:v.owner,vtype:v.vtype,zone:v.zone,liter:0,baht:0,price:0,idle:true}));}
+
+function fleetToast(msg){if(!msg)return;let t=document.getElementById('fleet-toast');if(!t){t=document.createElement('div');t.id='fleet-toast';t.className='fleet-toast';document.body.appendChild(t);}t.textContent=msg;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),3500);}

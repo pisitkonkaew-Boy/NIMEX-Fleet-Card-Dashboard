@@ -231,6 +231,10 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 /* admin-only / loading */
 body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
 #fdb-table tr.off td{color:var(--muted)}
+.fleet-toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;z-index:99;font-size:14px;max-width:90vw}
+.fleet-toast.on{opacity:1;transform:translateX(-50%)}
+#tab-fleetchk .card h2 small{font-weight:400;margin-left:6px}
+.actc{display:flex;flex-direction:column;gap:4px;min-width:118px}.actc .btn{min-height:30px;padding:4px 8px;font-size:12px}
 #m-car .field input,#m-car .field select{width:100%;box-sizing:border-box}
 #m-car .field select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;min-height:44px;color:var(--ink)}
 .content.loading .tab,.content.loading .chips{display:none!important}
@@ -266,6 +270,8 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
     <button data-tab="trend" onclick="goTab('trend')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>เทรนด์รายวัน</button>
     <button data-tab="alert" onclick="goTab('alert')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L2 20h20z"/><path d="M12 10v4"/><path d="M12 17v.5"/></svg>แจ้งเตือน <span class="nb" id="abadge">0</span></button>
     <button data-tab="analysis" onclick="goTab('analysis')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/><path d="M8 13l2-2 2 2 2-3"/></svg>วิเคราะห์แนวโน้ม <span class="nb" id="forecast-badge" style="display:none">0</span></button>
+    <button data-tab="fleetchk" class="adm" onclick="goTab('fleetchk')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L2 20h20z"/><path d="M12 10v4"/><path d="M12 17v.5"/></svg>ตรวจข้อมูลรถ <span class="nb fchk-nb" style="display:none">0</span></button>
+    <button data-tab="idle" class="adm" onclick="goTab('idle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 012-2h6a2 2 0 012 2v16"/><path d="M3 21h12"/><path d="M6 8h6"/><path d="M14 10h2a2 2 0 012 2v4a1.5 1.5 0 003 0V8l-3-3"/><path d="M2 2l20 20"/></svg>รถไม่มีการใช้งาน</button>
     <button data-tab="fleetdb" class="adm" onclick="goTab('fleetdb')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h12v10H2z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>ฐานรถ <span class="adm-tag">ผู้ดูแล</span></button>
     <button data-tab="settings" class="adm" onclick="goTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>ตั้งค่า <span class="adm-tag">ผู้ดูแล</span></button>
     <div class="foot">กด 1–6 สลับหน้า · / ค้นหา · Esc ปิด</div>
@@ -570,6 +576,19 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
         </div>
       </section>
       <!-- ══ TAB SETTINGS (เห็นเฉพาะผู้ดูแล) ══ -->
+      <section class="tab adm" id="tab-fleetchk">
+        <div class="stats" id="fchk-stats"></div>
+        <div id="fchk-body"></div>
+      </section>
+      <section class="tab adm" id="tab-idle">
+        <div class="card">
+          <h2>รถไม่มีการใช้งานน้ำมัน <small class="flog" id="idle-scope"></small></h2>
+          <p class="note" style="text-align:left">รถในฐานที่ยังใช้งาน แต่ไม่มีการเติมเลยในเดือนและกลุ่มที่เลือกด้านบน · PA ของรถกลุ่มนี้ยังถูกนับ · ถ้ารถเลิกใช้หรือลาออกแล้ว กด ตั้งเลิกใช้ (เดือนที่เลิกและก่อนหน้ายังนับ PA)</p>
+          <div class="stats" id="idle-stats"></div>
+          <div class="btns"><button class="btn alt" onclick="exportIdle()">ดาวน์โหลด (Excel)</button></div>
+          <div class="sb2" style="max-height:640px"><table class="dt"><thead><tr><th>ทะเบียน</th><th>รหัสรถ</th><th>กลุ่ม</th><th>DC</th><th>ภาค</th><th>เจ้าของ</th><th class="r">PA ลิตร</th><th>เติมล่าสุด</th><th class="r">ไม่ได้เติมมา (วัน)</th><th></th></tr></thead><tbody id="idle-body"></tbody></table></div>
+        </div>
+      </section>
       <section class="tab adm" id="tab-fleetdb">
         <div class="card">
           <h2>ฐานข้อมูลรถ</h2>
@@ -602,12 +621,12 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
       <section class="tab adm" id="tab-settings">
         <div class="card">
           <h2>เติมไฟล์</h2>
-          <p class="note">เลือกไฟล์ Excel รูปแบบเดิม ระบบอ่านในเครื่องก่อน แสดงสรุปให้ตรวจ แล้วจึงบันทึกลง Google Sheet · วันที่ซ้ำจะลบของเดิมแล้วยึดค่าใหม่</p>
+          <p class="note">เลือกไฟล์ดิบจาก Fleet Card (รายงาน การใช้ FleetCard ตาม cost centre) เลือกได้หลายไฟล์พร้อมกัน · ระบบอ่านในเครื่อง ตรวจยอดกับบรรทัด "รวมทั้งสิ้น" จับคู่กับฐานรถ แล้วสรุปให้ตรวจก่อนบันทึก · วันที่ซ้ำจะลบของเดิมแล้วยึดค่าใหม่</p>
           <div class="uzone" id="uzone" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="doDrop(event)" onclick="document.getElementById('finput').click()">
             <div class="big">📁</div>
             <p style="font-weight:500;font-size:15px">ลากไฟล์มาวางที่นี่ หรือแตะเพื่อเลือก</p>
-            <small style="color:var(--muted)">รองรับ .xlsx · คอลัมน์: วันที่, ปริมาณ(ลิตร), จำนวนเงิน, ราคาน้ำมัน, ทะเบียน, วงเงิน บาท, วงเงิน ลิตร, กลุ่มรถ, สังกัด DC, ประเภทรถ, ผปก/บริษัท</small>
-            <input type="file" id="finput" accept=".xlsx,.xls" style="display:none" onchange="onFile(event)">
+            <small style="color:var(--muted)">รองรับ .xlsx ไฟล์ดิบ Fleet Card (Report No. NIMEX…) · ไม่ต้องทำ VLOOKUP ข้อมูลรถมาจากฐานรถ</small>
+            <input type="file" id="finput" accept=".xlsx,.xls" multiple style="display:none" onchange="onFile(event)">
           </div>
           <div id="ustatus" class="msg" style="text-align:center;margin-top:8px" role="status"></div>
           <div id="set-plan" class="plan"></div>
@@ -658,6 +677,8 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
   <button data-tab="trend" onclick="goTab('trend')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>เทรนด์</button>
   <button data-tab="alert" onclick="goTab('alert')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L2 20h20z"/><path d="M12 10v4"/><path d="M12 17v.5"/></svg>แจ้งเตือน<span class="nb" data-mirror="abadge"></span></button>
   <button data-tab="analysis" onclick="goTab('analysis')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/><path d="M8 13l2-2 2 2 2-3"/></svg>วิเคราะห์<span class="nb" data-mirror="forecast-badge"></span></button>
+  <button data-tab="fleetchk" class="adm" onclick="goTab('fleetchk')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L2 20h20z"/><path d="M12 10v4"/><path d="M12 17v.5"/></svg>ตรวจรถ<span class="nb fchk-nb" style="display:none">0</span></button>
+  <button data-tab="idle" class="adm" onclick="goTab('idle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 012-2h6a2 2 0 012 2v16"/><path d="M3 21h12"/><path d="M6 8h6"/><path d="M14 10h2a2 2 0 012 2v4a1.5 1.5 0 003 0V8l-3-3"/><path d="M2 2l20 20"/></svg>ไม่ใช้งาน</button>
   <button data-tab="fleetdb" class="adm" onclick="goTab('fleetdb')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h12v10H2z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>ฐานรถ</button>
   <button data-tab="settings" class="adm" onclick="goTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>ตั้งค่า</button>
 </nav>
@@ -715,8 +736,9 @@ body:not(.admin) .adm,body:not(.admin) .nx-admin-only{display:none!important}
   </div>
 </div>
 
-<script src="fleetdb.js?v=1"></script>
-<script src="app.js?v=3"></script>
+<script src="fleetdb.js?v=2"></script>
+<script src="fuel.js?v=1"></script>
+<script src="app.js?v=4"></script>
 <script src="share.js?v=3"></script>
 </body>
 </html>
