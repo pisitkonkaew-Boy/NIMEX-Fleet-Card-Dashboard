@@ -11,6 +11,11 @@ let VEH={}, VEH_LIST=[], ZONES={}, FLEET_ON=false, UNMATCHED=[], PR={car:{},grp:
 const GROUPS=['กระจาย','ขนย้าย','Lay','รถใช้งานบริษัท'];
 const OWNERS=['01 รถบริษัท','02 รถร่วม นิติบุคคล','03 รถร่วม บุคคลธรรมดา','11 รถร่วม Lay'];
 
+// ทะเบียนสำหรับแสดงผล: มีขีดเสมอ เช่น 3ฒช1308 → 3ฒช-1308 · 651325 → 65-1325 (จับคู่ด้วย plateKey ที่ตัดขีดออก ไม่กระทบ)
+function fmtPlate(s){const t=String(s==null?'':s).replace(/[\s\u00A0]+/g,'').replace(/[\u2013\u2014]/g,'-');const k=t.replace(/[-.]/g,'');
+  let m=k.match(/^(\d?[ก-ฮ]{1,3})(\d{1,4})$/);if(m)return m[1]+'-'+m[2];
+  m=k.match(/^(\d{2})(\d{4,5})$/);if(m)return m[1]+'-'+m[2];
+  return t;}
 function plateKey(s){return String(s||'').replace(/[\s \-\.–—]/g,'').toUpperCase();}
 function nt(s){return String(s==null?'':s).replace(/[\s ]+/g,' ').trim();}
 function dcCodeOf(s){const m=nt(s).match(/^(\d+)/);return m?m[1]:nt(s);}
@@ -27,7 +32,7 @@ function buildFleet(j){
   zr.forEach(r=>{const c=nt(r[0]);if(c)ZONES[c]={code:c,name:nt(r[1]),zone:nt(r[2])};});
   const vr=(j&&j.vehicles&&j.vehicles.rows)||[];
   vr.forEach(r=>{
-    const plate=nt(r[0]);if(!plate)return;
+    const plate=fmtPlate(r[0]);if(!plate)return;
     const car={plate,key:plateKey(plate),code:nt(r[1]),group:nt(r[2]),dc:dcCodeOf(r[3]),vtype:nt(r[4]),ownerFull:ownNorm(r[5]),
       paL:parseFloat(r[6])||0,budget:parseFloat(r[7])||0,start:nt(r[8]),end:nt(r[9]),note:nt(r[10]),edited:nt(r[11])};
     car.owner=ownShort(car.ownerFull);car.zone=zoneOf(car.dc);car.dcLabel=dcLabel(car.dc);
@@ -161,7 +166,7 @@ function endCarToday(){document.getElementById('car-end').value=todayBE();}
 function validDate(s){return !s||/^\d{1,2}\/\d{1,2}\/25\d\d$/.test(s);}
 async function saveCar(){
   const g=id=>document.getElementById(id).value.trim(),m=document.getElementById('car-msg');
-  const o={oldPlate:g('car-old'),plate:g('car-plate'),code:g('car-code'),group:g('car-group'),dc:g('car-dc'),vtype:g('car-vtype'),owner:g('car-owner'),
+  const o={oldPlate:g('car-old'),plate:fmtPlate(g('car-plate')),code:g('car-code'),group:g('car-group'),dc:g('car-dc'),vtype:g('car-vtype'),owner:g('car-owner'),
     paL:g('car-group')==='รถใช้งานบริษัท'?'':g('car-pal'),budget:g('car-group')==='รถใช้งานบริษัท'?g('car-bud'):'',start:g('car-start'),end:g('car-end'),note:g('car-note')};
   if(!plateKey(o.plate)){m.textContent='ใส่ทะเบียนก่อน';return;}
   const dup=VEH[plateKey(o.plate)];if(dup&&plateKey(o.oldPlate)!==dup.key){m.textContent='ทะเบียนนี้มีในฐานแล้ว — กดแก้ไขที่คันนั้นแทน';return;}
@@ -199,7 +204,7 @@ function parseVehSheet(aoa){
   const g=(r,i)=>i>=0?nt(r[i]):'';
   const out={},dcs={};let dupRows=0;
   rows.forEach(r=>{
-    const plate=g(r,plateCol);if(!plateKey(plate))return;
+    const plate=fmtPlate(g(r,plateCol));if(!plateKey(plate))return;
     const grp=g(r,C.grp),dcRaw=g(r,C.dc),code=dcCodeOf(dcRaw);
     if(dcRaw&&dcNameOf(dcRaw))dcs[code]=dcNameOf(dcRaw);
     const bud=grp==='รถใช้งานบริษัท';

@@ -24,7 +24,7 @@ function normText(s){
 // Same idea for plates, plus normalize dash style and uppercase (in case a
 // plate has mixed-case Latin letters/format quirks from different exports).
 function normPlate(s){
-  return normText(s).replace(/[\u2013\u2014]/g,'-').toUpperCase();
+  return typeof fmtPlate==='function'?fmtPlate(normText(s).toUpperCase()):normText(s).replace(/[\u2013\u2014]/g,'-').toUpperCase();
 }
 // Convert row-array [date,liter,baht,price,plate,paBaht,paLiter,group,dc,vtype,owner] -> row object
 function toRowObj(r){

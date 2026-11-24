@@ -125,7 +125,7 @@ function fleetAlerts(){
   // DC/กลุ่มที่พบมากสุดต่อ Cost Centre (ใช้เดาค่าให้รถใหม่)
   const ccDc={},ccGrp={};ALL_ROWS.forEach(r=>{if(!r.cc||!r.car)return;(ccDc[r.cc]||(ccDc[r.cc]=[])).push(r.car.dc);(ccGrp[r.cc]||(ccGrp[r.cc]=[])).push(r.car.group);});
   const nwM={};
-  UNMATCHED.forEach(r=>{const k=plateKey(r.rawPlate||r.plate);const o=nwM[k]||(nwM[k]={key:k,plate:r.rawPlate||r.plate,n:0,l:0,b:0,last:null,code:'',cc:[],months:new Set()});
+  UNMATCHED.forEach(r=>{const k=plateKey(r.rawPlate||r.plate);const o=nwM[k]||(nwM[k]={key:k,plate:fmtPlate(r.rawPlate||r.plate),n:0,l:0,b:0,last:null,code:'',cc:[],months:new Set()});
     o.n++;o.l+=r.liter;o.b+=r.baht;o.cc.push(r.cc);o.months.add(monthKey(r.date));if(!o.last||tkey(r)>tkey(o.last))o.last=r;});
   const nw=Object.values(nwM).map(o=>{const cc=mostCommon(o.cc),lg=LEGACY[o.key];const code=o.last.code||'';
     return Object.assign(o,{cc,code,lastDate:o.last.date,rvt:rvtOf(cc),fleet:fleetOf(cc),legacy:lg||null,codeCar:code&&VEH_BY_CODE[code]&&VEH_BY_CODE[code].key!==o.key?VEH_BY_CODE[code]:null,
@@ -133,7 +133,7 @@ function fleetAlerts(){
   const byC={};nw.forEach(o=>{if(o.code)(byC[o.code]||(byC[o.code]=[])).push(o.plate);});
   nw.forEach(o=>{o.twins=o.code?(byC[o.code]||[]).filter(p=>p!==o.plate):[];});
   const lastBy={};ALL_ROWS.forEach(r=>{if(!r.car||!r.code)return;const o=lastBy[r.car.key];if(!o||tkey(r)>tkey(o))lastBy[r.car.key]=r;});
-  const mm=Object.values(lastBy).filter(r=>r.code!==r.car.code&&FCFG.ignoreCode[r.car.key]!==r.code).map(r=>({car:r.car,code:r.code,date:r.date,rvt:rvtOf(r.cc),fleet:fleetOf(r.cc),plateInFile:r.rawPlate,
+  const mm=Object.values(lastBy).filter(r=>r.code!==r.car.code&&FCFG.ignoreCode[r.car.key]!==r.code).map(r=>({car:r.car,code:r.code,date:r.date,rvt:rvtOf(r.cc),fleet:fleetOf(r.cc),plateInFile:fmtPlate(r.rawPlate),
     n:ALL_ROWS.filter(x=>x.car===r.car&&x.code===r.code).length})).sort((a,b)=>dkey(b.date)-dkey(a.date));
   return{nw,mm};
 }
